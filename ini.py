@@ -5,60 +5,176 @@ from kivy.uix.label import Label
 from kivy.uix.image import Image
 from kivy.uix.widget import Widget
 from kivy.uix.popup import Popup
+from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.app import App
 from kivy.metrics import dp, sp
 from kivy.core.window import Window
+from kivy.clock import Clock
+from kivy.utils import platform
 
+
+# ------------------ UTILIDADES RESPONSIVE ------------------
+class ResponsiveHelper:
+    @staticmethod
+    def is_mobile():
+        return platform in ['android', 'ios']
+    
+    @staticmethod
+    def is_desktop():
+        return platform in ['win', 'linux', 'macosx']
+    
+    @staticmethod
+    def get_navbar_width():
+        """Retorna el ancho del navbar según el tamaño de ventana"""
+        width = Window.width
+        if width < 600:
+            return dp(60)  # Navbar colapsado en móvil
+        elif width < 900:
+            return dp(150)
+        elif width < 1200:
+            return dp(180)
+        else:
+            return dp(200)
+    
+    @staticmethod
+    def get_font_size(base_size):
+        """Retorna tamaño de fuente responsive"""
+        width = Window.width
+        if width < 600:
+            return sp(base_size * 0.7)
+        elif width < 900:
+            return sp(base_size * 0.85)
+        return sp(base_size)
+    
+    @staticmethod
+    def get_button_height():
+        """Retorna altura de botones responsive"""
+        width = Window.width
+        if width < 600:
+            return dp(45)
+        return dp(50)
+    
+    @staticmethod
+    def get_logo_height():
+        """Retorna altura del logo responsive"""
+        width = Window.width
+        height = Window.height
+        if width < 600:
+            return dp(80)
+        elif width < 900:
+            return dp(120)
+        return min(dp(150), height * 0.15)
+    
+    @staticmethod
+    def get_popup_size():
+        """Retorna tamaño apropiado para popups"""
+        width = Window.width
+        height = Window.height
+        if width < 600:
+            return (width * 0.9, min(height * 0.4, dp(300)))
+        else:
+            return (min(width * 0.6, dp(450)), min(height * 0.35, dp(250)))
+    
+    @staticmethod
+    def should_show_text():
+        """Determina si se debe mostrar texto en botones del navbar"""
+        return Window.width >= 600
+
+
+# ------------------ BOTÓN HOVER RESPONSIVE ------------------
 class HoverButton(Button):
     def __init__(self, **kwargs):
+        # Extraer bg_color antes de llamar al constructor padre
+        bg_color = kwargs.pop('bg_color', (0.1, 0.4, 0.7, 1))
+        
         super().__init__(**kwargs)
-        self.original_background_color = (0.1, 0.4, 0.7, 1)
+        
+        self.original_background_color = bg_color
         self.hover_background_color = (0.2, 0.5, 0.9, 1)
-        self.background_color = self.original_background_color
+        self.background_normal = ''
+        self.background_color = (0, 0, 0, 0)
         self.size_hint_y = None
-        self.height = dp(50)
-        self.font_size = sp(18)
+        self.height = ResponsiveHelper.get_button_height()
+        self.font_size = ResponsiveHelper.get_font_size(18)
         self.color = (1, 1, 1, 1)
-        self.border_radius = dp(25)
+        self.bold = True
+        self.border_radius = dp(12)
 
         with self.canvas.before:
             Color(*self.original_background_color)
-            self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[self.border_radius])
+            self.rect = RoundedRectangle(
+                size=self.size,
+                pos=self.pos,
+                radius=[self.border_radius]
+            )
+        
         self.bind(size=self.update_rect, pos=self.update_rect)
+        Window.bind(on_resize=self.on_window_resize)
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
         self.rect.radius = [self.border_radius]
 
+    def on_window_resize(self, instance, width, height):
+        self.font_size = ResponsiveHelper.get_font_size(18)
+        self.height = ResponsiveHelper.get_button_height()
+
+
+# ------------------ NAVBAR RESPONSIVE ------------------
 class NavbarAuth(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.size_hint = (None, 1)
-        self.width = dp(200)
         self.orientation = "vertical"
-        self.padding = [dp(20), dp(20)]
+        self.size_hint = (None, 1)
         self.spacing = dp(10)
-
+        
+        self.update_dimensions()
+        
         with self.canvas.before:
             Color(0.1, 0.4, 0.7, 1)
             self.rect = Rectangle(size=self.size, pos=self.pos)
 
         self.bind(size=self.update_rect, pos=self.update_rect)
+        Window.bind(on_resize=self.on_window_resize)
+        
+        self.build_navbar()
 
-        self.logo = Image(source="Imagen5-Photoroom.png", size_hint=(1, None), height=dp(150))
+    def build_navbar(self):
+        self.clear_widgets()
+        
+        # Logo
+        logo_height = ResponsiveHelper.get_logo_height()
+        self.logo = Image(
+            source="Imagen5-Photoroom.png",
+            size_hint=(1, None),
+            height=logo_height,
+            fit_mode="contain"
+        )
         self.add_widget(self.logo)
 
-        # Añadimos un Widget vacío para crear espacio después del logo
-        self.espacio_logo = Widget(size_hint_y=None, height=dp(100))  # Ajusta la altura según necesites
-        self.add_widget(self.espacio_logo)
+        # Espaciador después del logo
+        spacer_height = dp(50) if Window.width >= 900 else dp(30)
+        self.add_widget(Widget(size_hint_y=None, height=spacer_height))
 
-        self.botones_navbar = BoxLayout(orientation="vertical", spacing=dp(10))
+        # Contenedor de botones
+        self.botones_navbar = BoxLayout(
+            orientation="vertical",
+            spacing=dp(10),
+            size_hint_y=None
+        )
+        self.botones_navbar.bind(minimum_height=self.botones_navbar.setter('height'))
         self.agregar_botones()
         self.add_widget(self.botones_navbar)
 
+        # Espaciador flexible
         self.add_widget(Widget(size_hint_y=1))
+
+    def update_dimensions(self):
+        self.width = ResponsiveHelper.get_navbar_width()
+        padding_size = dp(20) if Window.width >= 600 else dp(10)
+        self.padding = [padding_size, padding_size]
 
     def agregar_botones(self):
         menu_items = [
@@ -70,10 +186,23 @@ class NavbarAuth(BoxLayout):
             ("Cerrar Sesión", self.mostrar_popup_confirmacion)
         ]
 
+        show_text = ResponsiveHelper.should_show_text()
+
         for text, action in menu_items:
             bg_color = (0.7, 0.1, 0.1, 1) if text == "Cerrar Sesión" else (0.1, 0.4, 0.7, 1)
-            boton = HoverButton(text=text, size_hint_y=None, height=dp(50))
-            boton.background_color = bg_color
+            
+            # En pantallas pequeñas, usar versiones cortas o iconos
+            if not show_text:
+                if text == "Crear Torneo":
+                    text = "C.T."
+                elif text == "Crear Combate":
+                    text = "C.C."
+                elif text == "Mi cuenta":
+                    text = "Cuenta"
+                elif text == "Cerrar Sesión":
+                    text = "Salir"
+            
+            boton = HoverButton(text=text, bg_color=bg_color)
             boton.bind(on_press=action)
             self.botones_navbar.add_widget(boton)
 
@@ -81,8 +210,16 @@ class NavbarAuth(BoxLayout):
         self.rect.size = self.size
         self.rect.pos = self.pos
 
+    def on_window_resize(self, instance, width, height):
+        Clock.schedule_once(lambda dt: self.rebuild_navbar(), 0.1)
+
+    def rebuild_navbar(self):
+        self.update_dimensions()
+        self.build_navbar()
+
     def ir_a_torneos(self, instance):
         App.get_running_app().root.current = 'torneos_anteriores'
+    
     def ir_a_cuenta(self, instance):
         App.get_running_app().root.current = 'cuenta'
 
@@ -95,24 +232,37 @@ class NavbarAuth(BoxLayout):
     def ir_a_visualizar_combate(self, instance):
         app = App.get_running_app()
         if not app.root.has_screen('combates_anteriores'):
-            from combates_anteriore import CombatesScreen
-            app.root.add_widget(CombatesScreen(name='combates_anteriores'))
+            try:
+                from combates_anteriore import CombatesScreen
+                app.root.add_widget(CombatesScreen(name='combates_anteriores'))
+            except ImportError:
+                print("Módulo combates_anteriore no encontrado")
+                return
         app.root.current = 'combates_anteriores'
 
     def mostrar_popup_confirmacion(self, instance):
-        content = BoxLayout(orientation='vertical', spacing=dp(15), padding=dp(20))
+        content = BoxLayout(
+            orientation='vertical',
+            spacing=dp(15),
+            padding=dp(20)
+        )
 
         lbl_mensaje = Label(
             text='¿Estás seguro que deseas\ncerrar sesión?',
-            color=(0.2, 0.6, 1, 1),
-            font_size=sp(20),
+            color=(0.5, 0.8, 1, 1),
+            font_size=ResponsiveHelper.get_font_size(20),
             halign='center',
             valign='middle',
             size_hint_y=None,
-            height=dp(80))
+            height=dp(80)
+        )
         content.add_widget(lbl_mensaje)
 
-        btn_layout = BoxLayout(spacing=dp(10), size_hint_y=None, height=dp(50))
+        btn_layout = BoxLayout(
+            spacing=dp(10),
+            size_hint_y=None,
+            height=ResponsiveHelper.get_button_height()
+        )
 
         btn_cancelar = Button(
             text='CANCELAR',
@@ -120,7 +270,8 @@ class NavbarAuth(BoxLayout):
             background_color=(0.7, 0.1, 0.1, 1),
             color=(1, 1, 1, 1),
             bold=True,
-            font_size=sp(16))
+            font_size=ResponsiveHelper.get_font_size(16)
+        )
 
         btn_confirmar = Button(
             text='CONFIRMAR',
@@ -128,20 +279,22 @@ class NavbarAuth(BoxLayout):
             background_color=(0.1, 0.4, 0.7, 1),
             color=(1, 1, 1, 1),
             bold=True,
-            font_size=sp(16))
+            font_size=ResponsiveHelper.get_font_size(16)
+        )
 
         btn_layout.add_widget(btn_cancelar)
         btn_layout.add_widget(btn_confirmar)
         content.add_widget(btn_layout)
 
+        popup_size = ResponsiveHelper.get_popup_size()
         self.popup = Popup(
             title='Confirmar acción',
-            title_color=(0.2, 0.6, 1, 1),
-            title_size=sp(22),
+            title_color=(1, 1, 1, 1),
+            title_size=ResponsiveHelper.get_font_size(22),
             title_align='center',
             content=content,
             size_hint=(None, None),
-            size=(dp(350), dp(220)),
+            size=popup_size,
             separator_height=0,
             background=''
         )
@@ -169,94 +322,222 @@ class NavbarAuth(BoxLayout):
         self.popup.dismiss()
         App.get_running_app().root.current = 'main'
 
+
+# ------------------ PANTALLA PRINCIPAL RESPONSIVE ------------------
 class MainInAuthScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.build_ui()
-        Window.bind(on_resize=self.actualizar_tamanos)
+        Window.bind(on_resize=self.on_window_resize)
 
     def build_ui(self):
-        self.main_layout = BoxLayout(orientation='horizontal', spacing=0, padding=0)
+        self.clear_widgets()
+        
+        # Layout principal horizontal
+        self.main_layout = BoxLayout(
+            orientation='horizontal',
+            spacing=0,
+            padding=0
+        )
 
+        # Navbar
         self.navbar = NavbarAuth()
         self.main_layout.add_widget(self.navbar)
 
-        self.content_container = BoxLayout(orientation='vertical', size_hint=(1, 1))
+        # Contenedor principal del contenido (sin ScrollView aún)
+        content_wrapper = BoxLayout(
+            orientation='vertical',
+            size_hint=(1, 1)
+        )
 
+        # Fondo blanco para todo el contenedor
+        with content_wrapper.canvas.before:
+            Color(1, 1, 1, 1)
+            self.wrapper_bg = Rectangle(
+                size=content_wrapper.size,
+                pos=content_wrapper.pos
+            )
+        
+        # Función local para actualizar el fondo
+        def update_wrapper_bg(instance, value):
+            self.wrapper_bg.pos = instance.pos
+            self.wrapper_bg.size = instance.size
+        
+        content_wrapper.bind(
+            size=update_wrapper_bg,
+            pos=update_wrapper_bg
+        )
+
+        # Contenedor de contenido con ScrollView
+        scroll_view = ScrollView(
+            size_hint=(1, 1),
+            do_scroll_x=False,
+            bar_width=dp(10),
+            bar_color=[0.1, 0.4, 0.7, 1],
+            bar_inactive_color=[0.1, 0.4, 0.7, 0.5]
+        )
+
+        self.content_container = BoxLayout(
+            orientation='vertical',
+            size_hint_y=None,
+            spacing=0
+        )
+        
+        # Función para asegurar que el contenedor sea al menos tan alto como la ventana
+        def update_min_height(instance, value):
+            min_height = max(Window.height, self.content_layout.height)
+            self.content_container.height = min_height
+        
+        self.content_container.bind(minimum_height=update_min_height)
+        Window.bind(on_resize=lambda *args: update_min_height(None, None))
+        
+        # Fondo blanco también en el content_container
         with self.content_container.canvas.before:
             Color(1, 1, 1, 1)
-            self.bg_rect = Rectangle(size=self.content_container.size,
-                                     pos=self.content_container.pos)
+            self.content_bg = Rectangle(
+                size=self.content_container.size,
+                pos=self.content_container.pos
+            )
+        
+        # Función local para actualizar el fondo del contenido
+        def update_content_bg(instance, value):
+            self.content_bg.pos = instance.pos
+            self.content_bg.size = instance.size
+        
+        self.content_container.bind(
+            size=update_content_bg,
+            pos=update_content_bg
+        )
 
-        self.content_container.bind(size=self._update_bg_rect,
-                                     pos=self._update_bg_rect)
+        # Contenido principal
+        padding_h = max(dp(30), Window.width * 0.05)
+        padding_v = max(dp(20), Window.height * 0.03)
+        
+        self.content_layout = BoxLayout(
+            orientation='vertical',
+            spacing=dp(20),
+            padding=[padding_h, padding_v, padding_h, padding_v],
+            size_hint_y=None
+        )
+        self.content_layout.bind(minimum_height=self.content_layout.setter('height'))
 
-        self.content_layout = BoxLayout(orientation='vertical',
-                                         spacing=dp(20),
-                                         padding=[dp(30), dp(20), dp(30), dp(20)])
+        # Espaciador superior
+        top_spacer = max(dp(20), Window.height * 0.05)
+        self.content_layout.add_widget(Widget(size_hint_y=None, height=top_spacer))
 
+        # Título
         self.titulo = Label(
             text='PETO TECH',
-            font_size=sp(40),
+            font_size=ResponsiveHelper.get_font_size(40),
             color=(0.1, 0.1, 0.2, 1),
             bold=True,
             halign="center",
+            valign="middle",
             size_hint_y=None,
-            height=dp(80))
+            height=dp(80)
+        )
         self.content_layout.add_widget(self.titulo)
 
+        # Eslogan
         self.eslogan = Label(
             text='Bienvenido al sistema de gestión de torneos',
-            font_size=sp(24),
+            font_size=ResponsiveHelper.get_font_size(24),
             color=(0.1, 0.4, 0.7, 1),
             halign="center",
+            valign="middle",
             size_hint_y=None,
-            height=dp(40))
+            height=dp(60)
+        )
         self.content_layout.add_widget(self.eslogan)
 
-        self.imagenes_layout = BoxLayout(
-            orientation='horizontal',
-            size_hint_y=None,
-            height=dp(250),
-            spacing=dp(20))
+        # Espaciador
+        self.content_layout.add_widget(Widget(size_hint_y=None, height=dp(30)))
 
-        self.img1 = Image(source="p1-Photoroom.png", size_hint_x=1)
-        self.img2 = Image(source="p2-Photoroom.png", size_hint_x=1)
+        # Contenedor de imágenes responsive
+        self.imagenes_layout = BoxLayout(
+            orientation='horizontal' if Window.width > 600 else 'vertical',
+            size_hint_y=None,
+            spacing=dp(20)
+        )
+        
+        # Altura responsive para las imágenes
+        img_height = self.calculate_image_height()
+        self.imagenes_layout.height = img_height
+
+        self.img1 = Image(
+            source="p1-Photoroom.png",
+            size_hint_x=1 if Window.width > 600 else None,
+            size_hint_y=None,
+            height=img_height if Window.width <= 600 else img_height,
+            width=Window.width * 0.8 if Window.width <= 600 else 0,
+            fit_mode="contain"
+        )
+        
+        self.img2 = Image(
+            source="p2-Photoroom.png",
+            size_hint_x=1 if Window.width > 600 else None,
+            size_hint_y=None,
+            height=img_height if Window.width <= 600 else img_height,
+            width=Window.width * 0.8 if Window.width <= 600 else 0,
+            fit_mode="contain"
+        )
+        
         self.imagenes_layout.add_widget(self.img1)
+        if Window.width <= 600:
+            self.imagenes_layout.add_widget(Widget(size_hint_y=None, height=dp(20)))
         self.imagenes_layout.add_widget(self.img2)
+        
         self.content_layout.add_widget(self.imagenes_layout)
 
+        # Espaciador flexible
+        self.content_layout.add_widget(Widget(size_hint_y=None, height=dp(30)))
+
+        # Copyright
         self.copyright = Label(
             text="Copyright © 2025 - PetoTech System",
-            font_size=sp(14),
+            font_size=ResponsiveHelper.get_font_size(14),
             color=(0.5, 0.5, 0.5, 1),
             size_hint_y=None,
-            height=dp(30),
-            halign="center")
+            height=dp(40),
+            halign="center"
+        )
         self.content_layout.add_widget(self.copyright)
 
+        # Espaciador inferior
+        self.content_layout.add_widget(Widget(size_hint_y=None, height=dp(30)))
+
         self.content_container.add_widget(self.content_layout)
-        self.main_layout.add_widget(self.content_container)
+        scroll_view.add_widget(self.content_container)
+        self.main_layout.add_widget(scroll_view)
         self.add_widget(self.main_layout)
 
-        self.actualizar_tamanos()
+    def calculate_image_height(self):
+        """Calcula altura apropiada para imágenes según tamaño de ventana"""
+        if Window.width < 600:
+            return dp(200)
+        elif Window.width < 900:
+            return dp(220)
+        elif Window.width < 1200:
+            return min(dp(250), Window.height * 0.3)
+        else:
+            return min(dp(300), Window.height * 0.35)
 
     def _update_bg_rect(self, instance, value):
         self.bg_rect.pos = instance.pos
         self.bg_rect.size = instance.size
 
-    def actualizar_tamanos(self, *args):
-        content_width = Window.width * 0.8 - dp(60)
-        self.titulo.text_size = (content_width, None)
-        self.eslogan.text_size = (content_width, None)
-        self.imagenes_layout.height = max(dp(200), Window.height * 0.35)
+    def on_window_resize(self, instance, width, height):
+        Clock.schedule_once(lambda dt: self.build_ui(), 0.1)
 
+
+# ------------------ APP PRINCIPAL ------------------
 class MainApp(App):
     def build(self):
         from kivy.uix.screenmanager import ScreenManager
         sm = ScreenManager()
         sm.add_widget(MainInAuthScreen(name='main_auth'))
         return sm
+
 
 if __name__ == '__main__':
     MainApp().run()

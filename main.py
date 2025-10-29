@@ -6,8 +6,16 @@ from kivy.uix.label import Label
 from kivy.uix.image import Image
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle, RoundedRectangle
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.core.window import Window
+from kivy.metrics import dp, sp
+from kivy.utils import platform
+from kivy.clock import Clock
 import webbrowser
-from kivy.uix.spinner import Spinner
+import os
+
+# Importaciones de tus pantallas
 from registro import RegistroScreen
 from torneos_anteriores import TorneosAnterioresScreen
 from crear_torneo import CrearTorneoScreen
@@ -22,6 +30,63 @@ from cuenta import VerInfoScreen
 from actualizar_torneos import ActualizarTorneoScreen
 from actualizar import ActualizarDatosScreen
 
+
+# ------------------ UTILIDADES MULTIPLATAFORMA ------------------
+class ResponsiveHelper:
+    """Clase helper para manejar dimensiones responsive"""
+    
+    @staticmethod
+    def get_window_width():
+        return Window.width
+    
+    @staticmethod
+    def get_window_height():
+        return Window.height
+    
+    @staticmethod
+    def is_mobile():
+        return platform in ['android', 'ios']
+    
+    @staticmethod
+    def is_desktop():
+        return platform in ['win', 'linux', 'macosx']
+    
+    @staticmethod
+    def get_navbar_width():
+        """Retorna el ancho apropiado para la navbar según el dispositivo"""
+        width = Window.width
+        if ResponsiveHelper.is_mobile() or width < 800:
+            return 0.25  # 25% en móviles o ventanas pequeñas
+        elif width < 1200:
+            return 0.22  # 22% en ventanas medianas
+        else:
+            return 0.18  # 18% en ventanas grandes
+    
+    @staticmethod
+    def get_font_size(base_size):
+        """Ajusta el tamaño de fuente según la resolución"""
+        width = Window.width
+        if ResponsiveHelper.is_mobile() or width < 800:
+            return sp(base_size * 0.75)
+        elif width < 1200:
+            return sp(base_size * 0.85)
+        return sp(base_size)
+    
+    @staticmethod
+    def get_spacing():
+        """Retorna espaciado apropiado"""
+        return dp(10)
+    
+    @staticmethod
+    def get_padding():
+        """Retorna padding apropiado"""
+        width = Window.width
+        if ResponsiveHelper.is_mobile() or width < 800:
+            return [dp(10), dp(10)]
+        return [dp(20), dp(20)]
+
+
+# ------------------ BOTÓN CON EFECTO HOVER RESPONSIVE ------------------
 class HoverButton(Button):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -29,39 +94,62 @@ class HoverButton(Button):
         self.hover_background_color = (0.2, 0.5, 0.9, 1)
         self.background_color = self.original_background_color
         self.size_hint_y = None
-        self.height = 50
-        self.font_size = 18
+        self.height = dp(50)
+        self.font_size = ResponsiveHelper.get_font_size(16)
         self.color = (1, 1, 1, 1)
-        self.border_radius = 25
+        self.border_radius = dp(25)
+        self.background_normal = ''
+        self.background_down = ''
 
         with self.canvas.before:
             Color(*self.original_background_color)
             self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[self.border_radius])
         self.bind(size=self.update_rect, pos=self.update_rect)
+        
+        # Actualizar tamaño de fuente cuando cambie la ventana
+        Window.bind(on_resize=self.on_window_resize)
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
         self.rect.radius = [self.border_radius]
+    
+    def on_window_resize(self, instance, width, height):
+        self.font_size = ResponsiveHelper.get_font_size(16)
+        self.height = dp(50)
 
+
+# ------------------ NAVBAR RESPONSIVE ------------------
 class Navbar(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.size_hint = (.2, 1)
+        self.size_hint = (ResponsiveHelper.get_navbar_width(), 1)
         self.orientation = "vertical"
-        self.padding = [20, 20]
-        self.spacing = 10
+        self.padding = ResponsiveHelper.get_padding()
+        self.spacing = ResponsiveHelper.get_spacing()
 
         with self.canvas.before:
             Color(0.1, 0.4, 0.7, 1)
             self.rect = Rectangle(size=self.size, pos=self.pos)
-
         self.bind(size=self.update_rect, pos=self.update_rect)
 
-        self.logo = Image(source="Imagen5-Photoroom.png", size_hint=(1, None), height=150)
-        self.add_widget(self.logo)
+        # ScrollView para navbar en caso de overflow
+        scroll = ScrollView(size_hint=(1, 1), do_scroll_x=False, bar_width=0)
+        scroll_content = BoxLayout(orientation='vertical', size_hint_y=None, spacing=dp(10))
+        scroll_content.bind(minimum_height=scroll_content.setter('height'))
 
-        self.botones_navbar = BoxLayout(orientation="vertical", spacing=10)
+        # Logo responsive
+        self.logo = Image(
+            source="Imagen5-Photoroom.png", 
+            size_hint=(1, None), 
+            height=dp(120),
+            allow_stretch=True,
+            keep_ratio=True
+        )
+        scroll_content.add_widget(self.logo)
+
+        # Espaciador
+        scroll_content.add_widget(Widget(size_hint_y=None, height=dp(10)))
 
         menu_items = [
             ("Manual de usuario", self.descargar_manual),
@@ -72,19 +160,36 @@ class Navbar(BoxLayout):
         for text, action in menu_items:
             boton = HoverButton(text=text)
             boton.bind(on_press=action)
-            self.botones_navbar.add_widget(boton)
+            scroll_content.add_widget(boton)
 
-        self.add_widget(self.botones_navbar)
-
-        empty_widget = Widget(size_hint_y=1)
-        self.add_widget(empty_widget)
+        scroll.add_widget(scroll_content)
+        self.add_widget(scroll)
+        
+        # Actualizar cuando cambie el tamaño de ventana
+        Window.bind(on_resize=self.on_window_resize)
 
     def update_rect(self, *args):
         self.rect.size = self.size
         self.rect.pos = self.pos
+    
+    def on_window_resize(self, instance, width, height):
+        self.size_hint = (ResponsiveHelper.get_navbar_width(), 1)
+        self.logo.height = dp(120)
+        self.spacing = ResponsiveHelper.get_spacing()
+        self.padding = ResponsiveHelper.get_padding()
 
     def descargar_manual(self, instance):
-        webbrowser.open("ilovepdf_merged (2)[1].pdf")
+        # Manejo multiplataforma de rutas
+        manual_path = "ilovepdf_merged (2)[1].pdf"
+        if os.path.exists(manual_path):
+            if platform == 'win':
+                os.startfile(manual_path)
+            elif platform == 'macosx':
+                os.system(f'open "{manual_path}"')
+            else:  # linux
+                os.system(f'xdg-open "{manual_path}"')
+        else:
+            webbrowser.open(manual_path)
 
     def enviar_correo(self, instance):
         webbrowser.open("mailto:karlycid0925@gmail.com")
@@ -92,273 +197,267 @@ class Navbar(BoxLayout):
     def ir_a_conocenos(self, instance):
         App.get_running_app().root.current = 'conocenos'
 
+
+# ------------------ LABEL RESPONSIVE ------------------
+class ResponsiveLabel(Label):
+    """Label que ajusta automáticamente su altura según el contenido"""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint_y = None
+        self.bind(texture_size=self.on_texture_size)
+        # Programar actualización de text_size después de que se renderice
+        Clock.schedule_once(self.update_text_size, 0)
+    
+    def update_text_size(self, dt):
+        if self.text_size[0] is None:
+            self.text_size = (self.width, None)
+    
+    def on_texture_size(self, instance, value):
+        self.height = value[1] + dp(20)
+    
+    def on_size(self, instance, value):
+        if self.text_size[0] != self.width:
+            self.text_size = (self.width, None)
+
+
+# ------------------ PANTALLA CONÓCENOS RESPONSIVE ------------------
 class ConocenosScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.build_ui()
+        Window.bind(on_resize=self.on_window_resize)
+
+    def build_ui(self):
+        self.clear_widgets()
         
-        main_layout = BoxLayout(orientation='horizontal', spacing=10, padding=[0, 0])
+        main_layout = BoxLayout(
+            orientation='horizontal', 
+            spacing=0
+        )
         self.navbar = Navbar()
         main_layout.add_widget(self.navbar)
 
-        # Contenido principal
-        content_layout = BoxLayout(orientation='vertical', spacing=0, padding=[0, 0], size_hint=(.8, 1))
-
+        content_layout = BoxLayout(
+            orientation='vertical', 
+            spacing=0, 
+            size_hint=(1 - ResponsiveHelper.get_navbar_width(), 1)
+        )
         with content_layout.canvas.before:
             Color(0.98, 0.98, 0.98, 1)
             self.background_rect = Rectangle(size=content_layout.size, pos=content_layout.pos)
-
         content_layout.bind(size=self.update_background_rect, pos=self.update_background_rect)
 
-        # ScrollView para contenido extenso
-        from kivy.uix.scrollview import ScrollView
         scroll_view = ScrollView(
             size_hint=(1, 1), 
-            do_scroll_x=False,
-            bar_width=10,
-            scroll_type=['bars', 'content']
-        )
-        
-        # Layout principal dentro del ScrollView
-        main_content = BoxLayout(
-            orientation='vertical', 
-            spacing=30, 
-            padding=[20, 20], 
-            size_hint_y=None,
-            size_hint_x=1
-        )
-        main_content.bind(
-            minimum_height=main_content.setter('height'),
-            width=lambda mc, val: setattr(mc, 'width', val)
+            do_scroll_x=False, 
+            bar_width=dp(10),
+            scroll_type=['bars', 'content'],
+            bar_color=(0.5, 0.5, 0.5, 1),
+            bar_inactive_color=(0.7, 0.7, 0.7, 0.5)
         )
 
-        # Título principal con altura fija adecuada
-        titulo = Label(
+        main_content = BoxLayout(
+            orientation='vertical', 
+            spacing=dp(20), 
+            padding=[dp(15), dp(20), dp(15), dp(30)],
+            size_hint_y=None
+        )
+        main_content.bind(minimum_height=main_content.setter('height'))
+        
+        # Fondo para el contenido del scroll
+        with main_content.canvas.before:
+            Color(0.98, 0.98, 0.98, 1)
+            self.main_content_rect = Rectangle(size=main_content.size, pos=main_content.pos)
+        main_content.bind(size=self.update_main_content_rect, pos=self.update_main_content_rect)
+
+        # Título
+        titulo = ResponsiveLabel(
             text='[b]CONÓCENOS[/b]',
-            font_size=42,
+            font_size=ResponsiveHelper.get_font_size(36), 
             markup=True,
             color=(0.1, 0.3, 0.6, 1),
-            size_hint_y=None,
-            height=100,
             halign='center',
-            valign='middle'
+            size_hint_y=None,
+            height=dp(80)
         )
         main_content.add_widget(titulo)
 
-        # Separador visual
-        from kivy.uix.behaviors import ButtonBehavior
-        class Separator(ButtonBehavior, Widget):
-            def __init__(self, **kwargs):
-                super().__init__(**kwargs)
-                self.size_hint_y = None
-                self.height=5
-                with self.canvas:
-                    Color(0.1, 0.4, 0.7, 0.6)
-                    self.rect = Rectangle(size=self.size, pos=self.pos)
-                self.bind(size=self._update_rect, pos=self._update_rect)
-            
-            def _update_rect(self, *args):
-                self.rect.size = self.size
-                self.rect.pos = self.pos
-
-        main_content.add_widget(Separator())
-
-        # Función para crear secciones con alturas bien definidas
-        def crear_seccion(titulo_seccion, contenido, color_titulo=(0.1, 0.4, 0.7, 0.6)):
-            container = BoxLayout(
+        # -------- Función para secciones --------
+        def crear_seccion(titulo_seccion, contenido):
+            box = BoxLayout(
                 orientation='vertical', 
                 size_hint_y=None,
-                spacing=0,
-                padding=[0, 0, 0, 30]
+                spacing=dp(8),
+                padding=[dp(10), dp(10)]
             )
+            box.bind(minimum_height=box.setter('height'))
             
-            with container.canvas.before:
-                Color(0.95, 0.95, 0.95, 1)
-                container.rect = RoundedRectangle(
-                    size=container.size,
-                    pos=container.pos,
-                    radius=[15]
+            # Fondo con borde para cada sección
+            with box.canvas.before:
+                Color(1, 1, 1, 1)
+                box.bg_rect = RoundedRectangle(size=box.size, pos=box.pos, radius=[dp(15)])
+                Color(0.1, 0.4, 0.7, 0.3)
+                box.border_rect = RoundedRectangle(
+                    size=box.size, 
+                    pos=box.pos, 
+                    radius=[dp(15)]
                 )
-            container.bind(
-                size=lambda c, val: setattr(c.rect, 'size', val),
-                pos=lambda c, val: setattr(c.rect, 'pos', val))
             
-            seccion = BoxLayout(
-                orientation='vertical', 
-                spacing=20,
-                size_hint_y=None,
-                padding=[30, 30]
-            )
+            def update_box_rects(instance, value):
+                box.bg_rect.size = instance.size
+                box.bg_rect.pos = instance.pos
+                box.border_rect.size = instance.size
+                box.border_rect.pos = instance.pos
             
-            # Título de sección con altura fija adecuada
-            lbl_titulo = Label(
-                text=f'[b]{titulo_seccion}[/b]',
-                font_size=28,
+            box.bind(size=update_box_rects, pos=update_box_rects)
+            
+            lbl_titulo = ResponsiveLabel(
+                text=f"[b]{titulo_seccion}[/b]", 
                 markup=True,
-                color=color_titulo,
-                size_hint_y=None,
-                height=70,
-                halign='center',
-                valign='middle'
+                font_size=ResponsiveHelper.get_font_size(22), 
+                color=(0.1, 0.4, 0.7, 1),
+                halign='center'
             )
-            seccion.add_widget(lbl_titulo)
             
-            # Contenido con altura calculada dinámicamente
-            lbl_contenido = Label(
+            lbl_contenido = ResponsiveLabel(
                 text=contenido,
-                font_size=20,
+                font_size=ResponsiveHelper.get_font_size(16), 
                 color=(0.2, 0.2, 0.2, 1),
-                size_hint_y=80,
                 halign='center',
-                valign='top',
-                text_size=(content_layout.width * 0.8, 0.8),
-                padding=(10, 10))
+                valign='top'
+            )
             
-            # Función para calcular altura del texto
-            def update_text_height(lbl, *args):
-                lbl.texture_update()
-                if lbl.texture:
-                    lbl.height = max(lbl.texture.height + 50, 100)
-            
-            lbl_contenido.bind(
-                texture_size=update_text_height,
-                width=lambda lbl, val: setattr(lbl, 'text_size', (val * 0.8, None)))
-            
-            seccion.add_widget(lbl_contenido)
-            
-            # Establecer altura mínima para la sección
-            def update_section_height(sec, *args):
-                sec.height = lbl_titulo.height + lbl_contenido.height + 60
-            
-            seccion.bind(height=update_section_height)
-            
-            container.add_widget(seccion)
-            
-            # Establecer altura del contenedor
-            container.height = seccion.height + 30
-            
-            return container
+            box.add_widget(lbl_titulo)
+            box.add_widget(lbl_contenido)
+            return box
 
-        # Sección Misión
-        mision = crear_seccion(
-            "MISIÓN",
-            "En Peto Tech nos dedicamos a desarrollar soluciones tecnológicas innovadoras para la gestión de torneos deportivos. Nuestra plataforma facilita la organización, seguimiento y análisis de combates, ofreciendo herramientas intuitivas para atletas, entrenadores y organizadores.",
-            (0.1, 0.4, 0.7, 0.6)
-        )
-        main_content.add_widget(mision)
-
-        # Sección Visión
-        vision = crear_seccion(
-            "VISIÓN",
-            "Aspiramos a ser reconocidos como líderes en software deportivo, destacando por nuestra innovación, calidad y compromiso con nuestros usuarios. Buscamos transformar la experiencia de gestión deportiva mediante tecnología accesible y de alto rendimiento.",
-            (0.1, 0.4, 0.7, 0.6)
-        )
-        main_content.add_widget(vision)
-
-        # Galería de imágenes del equipo con altura fija adecuada
-        gallery_title = Label(
-            text="[b]CONOCE A NUESTRO EQUIPO[/b]",
-            font_size=24,
-            markup=True,
-            color=(0.1, 0.3, 0.6, 1),
+        # Contenedor para Misión y Visión lado a lado
+        mision_vision_container = BoxLayout(
+            orientation='horizontal' if Window.width > 800 else 'vertical',
+            spacing=dp(15),
             size_hint_y=None,
-            height=80,
-            halign='center'
+            padding=[dp(10), 0]
+        )
+        mision_vision_container.bind(minimum_height=mision_vision_container.setter('height'))
+        
+        seccion_mision = crear_seccion(
+            "MISIÓN",
+            "En Peto Tech desarrollamos soluciones tecnológicas innovadoras para la gestión de torneos deportivos, "
+            "facilitando la organización, seguimiento y análisis de combates mediante herramientas intuitivas."
+        )
+        
+        seccion_vision = crear_seccion(
+            "VISIÓN",
+            "Ser líderes en software deportivo, destacando por nuestra innovación, calidad y compromiso con los usuarios."
+        )
+        
+        mision_vision_container.add_widget(seccion_mision)
+        mision_vision_container.add_widget(seccion_vision)
+        main_content.add_widget(mision_vision_container)
+
+        # -------- Galería Responsive --------
+        gallery_title = ResponsiveLabel(
+            text="[b]CONOCE A NUESTRO EQUIPO[/b]",
+            markup=True, 
+            font_size=ResponsiveHelper.get_font_size(22),
+            color=(0.1, 0.3, 0.6, 1),
+            halign='center',
+            size_hint_y=None,
+            height=dp(60)
         )
         main_content.add_widget(gallery_title)
 
-        from kivy.uix.anchorlayout import AnchorLayout
-
-        # Contenedor que centrará nuestro grid horizontal
-        img_container = AnchorLayout(
+        # Contenedor centrado para las tarjetas
+        gallery_container = AnchorLayout(
             anchor_x='center',
+            anchor_y='top',
             size_hint_y=None,
-            height=300
+            height=dp(300)
         )
-
-        # Grid horizontal para las tarjetas
+        
+        # Contenedor de galería con scroll horizontal
+        gallery_scroll = ScrollView(
+            size_hint=(None, None),
+            size=(min(Window.width * 0.9, dp(600)), dp(280)),
+            do_scroll_y=False,
+            bar_width=dp(10)
+        )
+        
         img_grid = BoxLayout(
-            orientation='horizontal',
-            spacing=20,
+            orientation='horizontal', 
+            spacing=dp(15), 
             size_hint=(None, 1),
-            padding=[0, 20]
+            padding=[dp(10), 0]
         )
         img_grid.bind(minimum_width=img_grid.setter('width'))
 
-        # Clase para tarjetas de equipo (modificada)
         class TeamCard(BoxLayout):
             def __init__(self, image_path, name, role, **kwargs):
                 super().__init__(
                     orientation='vertical', 
-                    spacing=5, 
                     size_hint=(None, None),
-                    size=(200, 250),
-                    padding=[10, 10],
+                    size=(dp(180), dp(240)), 
+                    padding=dp(10), 
+                    spacing=dp(5), 
                     **kwargs
                 )
-                
                 with self.canvas.before:
                     Color(0.9, 0.9, 0.9, 1)
-                    self.rect = RoundedRectangle(
-                        size=self.size,
-                        pos=self.pos,
-                        radius=[10]
-                    )
+                    self.rect = RoundedRectangle(size=self.size, pos=self.pos, radius=[dp(10)])
                 self.bind(
-                    size=lambda c, val: setattr(c.rect, 'size', val),
-                    pos=lambda c, val: setattr(c.rect, 'pos', val))
+                    size=lambda c, v: setattr(c.rect, 'size', v),
+                    pos=lambda c, v: setattr(c.rect, 'pos', v)
+                )
                 
-                # Imagen
                 img = Image(
-                    source=image_path,
-                    size_hint_y=0.7,
+                    source=image_path, 
+                    size_hint_y=0.65, 
                     allow_stretch=True,
                     keep_ratio=True
                 )
                 self.add_widget(img)
                 
-                # Nombre(s)
-                lbl_name = Label(
-                    text=f'[b]{name}[/b]',
-                    markup=True,
+                self.add_widget(Label(
+                    text=f"[b]{name}[/b]", 
+                    markup=True, 
                     color=(0.1, 0.4, 0.7, 1),
-                    font_size=16,
-                    halign='center'
-                )
-                self.add_widget(lbl_name)
-                
-                # Rol
-                lbl_role = Label(
-                    text=role,
+                    font_size=ResponsiveHelper.get_font_size(16),
+                    size_hint_y=0.2
+                ))
+                self.add_widget(Label(
+                    text=role, 
                     color=(0.4, 0.4, 0.4, 1),
-                    font_size=14,
-                    halign='center'
-                )
-                self.add_widget(lbl_role)
+                    font_size=ResponsiveHelper.get_font_size(14),
+                    size_hint_y=0.15
+                ))
 
-        # Añadir tarjetas al grid
-        img_grid.add_widget(TeamCard("p1-Photoroom.png", "Karla", "x"))
-        img_grid.add_widget(TeamCard("p2-Photoroom.png", "Enrique", "x"))
-        img_grid.add_widget(TeamCard("p2-Photoroom.png", "Leonardo", "x"))
+        img_grid.add_widget(TeamCard("p1-Photoroom.png", "Karla", "Desarrolladora"))
+        img_grid.add_widget(TeamCard("p2-Photoroom.png", "Enrique", "Diseñador UI/UX"))
+        img_grid.add_widget(TeamCard("p2-Photoroom.png", "Leonardo", "Backend Developer"))
 
-        # Añadir el grid al contenedor centrado
-        img_container.add_widget(img_grid)
+        gallery_scroll.add_widget(img_grid)
+        gallery_container.add_widget(gallery_scroll)
+        main_content.add_widget(gallery_container)
 
-        # Añadir el contenedor al contenido principal
-        main_content.add_widget(img_container)
+        # Espaciador
+        main_content.add_widget(Widget(size_hint_y=None, height=dp(20)))
 
-        # Botón de regreso
-        btn_back = Button(
-            text="Volver al Inicio",
-            size_hint=(0.4, None),
-            height=50,
-            pos_hint={'center_x': 0.5},
-            background_color=(0.1, 0.4, 0.7, 1),
-            color=(1, 1, 1, 1),
-            font_size=18,
-            bold=True
+        # Botón volver
+        btn_back = HoverButton(
+            text="Volver al Inicio", 
+            size_hint=(None, None), 
+            size=(dp(300), dp(50))
         )
         btn_back.bind(on_press=lambda x: setattr(self.manager, 'current', 'main'))
-        main_content.add_widget(btn_back)
+        
+        btn_container = AnchorLayout(
+            anchor_x='center', 
+            anchor_y='top',
+            size_hint_y=None, 
+            height=dp(70)
+        )
+        btn_container.add_widget(btn_back)
+        main_content.add_widget(btn_container)
 
         scroll_view.add_widget(main_content)
         content_layout.add_widget(scroll_view)
@@ -368,128 +467,181 @@ class ConocenosScreen(Screen):
     def update_background_rect(self, instance, value):
         self.background_rect.size = instance.size
         self.background_rect.pos = instance.pos
+    
+    def update_main_content_rect(self, instance, value):
+        """Actualiza el fondo del contenido del scroll"""
+        self.main_content_rect.size = instance.size
+        self.main_content_rect.pos = instance.pos
+    
+    def on_window_resize(self, instance, width, height):
+        # Reconstruir UI al cambiar tamaño
+        Clock.schedule_once(lambda dt: self.build_ui(), 0.1)
 
+
+# ------------------ PANTALLA PRINCIPAL RESPONSIVE ------------------
 class MainInScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.build_ui()
+        Window.bind(on_resize=self.on_window_resize)
 
-        main_layout = BoxLayout(orientation='horizontal', spacing=10, padding=[0, 0])
+    def build_ui(self):
+        self.clear_widgets()
+        
+        main_layout = BoxLayout(
+            orientation='horizontal', 
+            spacing=0
+        )
         self.navbar = Navbar()
         main_layout.add_widget(self.navbar)
 
-        content_layout = BoxLayout(orientation='vertical', spacing=20, padding=[30, 30], size_hint=(.8, 1))
+        # ScrollView para contenido principal
+        scroll_view = ScrollView(
+            size_hint=(1 - ResponsiveHelper.get_navbar_width(), 1),
+            do_scroll_x=False,
+            bar_width=dp(10),
+            bar_color=(0.5, 0.5, 0.5, 1),
+            bar_inactive_color=(0.7, 0.7, 0.7, 0.5)
+        )
 
+        content_layout = BoxLayout(
+            orientation='vertical', 
+            spacing=dp(15), 
+            padding=ResponsiveHelper.get_padding(),
+            size_hint_y=None
+        )
+        content_layout.bind(minimum_height=content_layout.setter('height'))
+        
         with content_layout.canvas.before:
             Color(0.95, 0.95, 0.95, 1)
             self.background_rect = Rectangle(size=content_layout.size, pos=content_layout.pos)
-
         content_layout.bind(size=self.update_background_rect, pos=self.update_background_rect)
 
-        center_layout = BoxLayout(orientation='vertical', spacing=20, size_hint=(1, None), height=400)
-        center_layout.bind(size=self.update_center_layout)
+        # Espaciador superior
+        content_layout.add_widget(Widget(size_hint_y=None, height=dp(20)))
 
-        titulo = Label(
+        titulo = ResponsiveLabel(
             text='PETO TECH',
-            font_size=70,
-            color=(0.1, 0.1, 0.2, 1),
+            font_size=ResponsiveHelper.get_font_size(60), 
             bold=True,
+            color=(0.1, 0.1, 0.2, 1),
             halign="center",
-            valign="middle",
             size_hint_y=None,
-            height=100,
-            text_size=(content_layout.width, None))
-        center_layout.add_widget(titulo)
-
-        eslogan = Label(
+            height=dp(80)
+        )
+        
+        eslogan = ResponsiveLabel(
             text='Tu solución tecnológica para la gestión de torneos de Taekwondo.',
-            font_size=24,
+            font_size=ResponsiveHelper.get_font_size(20), 
             color=(0.1, 0.4, 0.7),
             halign="center",
-            valign="middle",
             size_hint_y=None,
-            height=50,
-            text_size=(content_layout.width, None)
+            height=dp(60)
         )
-        center_layout.add_widget(eslogan)
 
-        botones_frame = BoxLayout(orientation="horizontal", size_hint_y=None, height=50, spacing=20)
+        botones = BoxLayout(
+            spacing=dp(15), 
+            size_hint=(1, None), 
+            height=dp(50),
+            padding=[dp(20), 0]
+        )
+        btn_login = HoverButton(text="INICIAR SESIÓN")
+        btn_login.bind(on_press=lambda x: setattr(self.manager, 'current', 'inicio_sesion'))
+        btn_reg = HoverButton(text="REGISTRARSE")
+        btn_reg.bind(on_press=lambda x: setattr(self.manager, 'current', 'registro'))
+        botones.add_widget(btn_login)
+        botones.add_widget(btn_reg)
 
-        btn_iniciar_sesion = HoverButton(text="INICIAR SESIÓN")
-        btn_iniciar_sesion.bind(on_press=self.ir_a_inicio_sesion)
-        botones_frame.add_widget(btn_iniciar_sesion)
-
-        btn_registrarse = HoverButton(text="REGISTRARSE")
-        btn_registrarse.bind(on_press=self.ir_a_registro)
-        botones_frame.add_widget(btn_registrarse)
-
-        center_layout.add_widget(botones_frame)
+        btn_juez = HoverButton(
+            text="ACCESO JUEZ", 
+            size_hint=(None, None), 
+            size=(min(dp(400), Window.width * 0.5), dp(45))
+        )
+        btn_juez.bind(on_press=lambda x: setattr(App.get_running_app().root, 'current', 'ini_juez'))
         
-        # Botón modificado para acceso juez
-        btn_tengo_contraeña = HoverButton(
-            text="ACCESO JUEZ",
-            size_hint=(None, None),
-            size=(500, 40),
-            pos_hint={'center_x': 0.5}
+        btn_juez_container = AnchorLayout(
+            anchor_x='center',
+            size_hint_y=None, 
+            height=dp(60)
         )
-        btn_tengo_contraeña.bind(on_press=lambda x: setattr(App.get_running_app().root, 'current', 'ini_juez'))
-        center_layout.add_widget(btn_tengo_contraeña)
+        btn_juez_container.add_widget(btn_juez)
 
-        quienes_somos = Label(
+        quienes = ResponsiveLabel(
             text="Somos un equipo dedicado a ofrecer soluciones tecnológicas innovadoras para el deporte.",
-            font_size=18,
+            font_size=ResponsiveHelper.get_font_size(16), 
             color=(0.1, 0.1, 0.1, 1),
-            halign="center",
-            valign="middle",
-            size_hint_y=None,
-            height=60,
-            text_size=(content_layout.width, None)
+            halign="center"
         )
-        center_layout.add_widget(quienes_somos)
 
-        content_layout.add_widget(center_layout)
+        imagenes = BoxLayout(
+            orientation="horizontal", 
+            spacing=dp(15), 
+            size_hint=(1, None), 
+            height=dp(250),
+            padding=[dp(20), 0]
+        )
+        imagenes.add_widget(Image(
+            source="p1-Photoroom.png",
+            allow_stretch=True,
+            keep_ratio=True
+        ))
+        imagenes.add_widget(Image(
+            source="p2-Photoroom.png",
+            allow_stretch=True,
+            keep_ratio=True
+        ))
 
-        im_frame = BoxLayout(orientation="horizontal", size_hint_y=None, height=350, spacing=20)
-        self.i1 = Image(source="p1-Photoroom.png", size_hint_x=(1), height=350)
-        im_frame.add_widget(self.i1)
-        self.i2 = Image(source="p2-Photoroom.png", size_hint_x=(1), height=350)
-        im_frame.add_widget(self.i2)
-        center_layout.add_widget(im_frame)
-
-        copyright = Label(
-            text="Copyright © 2025 - PetoTech System",
-            font_size=15,
+        footer = Label(
+            text="© 2025 - PetoTech System", 
+            font_size=ResponsiveHelper.get_font_size(14), 
             color=(0.5, 0.5, 0.5, 1),
             size_hint_y=None,
-            halign="center")
+            height=dp(40)
+        )
+
+        content_layout.add_widget(titulo)
+        content_layout.add_widget(eslogan)
+        content_layout.add_widget(botones)
+        content_layout.add_widget(btn_juez_container)
+        content_layout.add_widget(quienes)
+        content_layout.add_widget(imagenes)
+        content_layout.add_widget(footer)
         
-        content_layout.add_widget(copyright)
+        # Espaciador inferior grande para cubrir todo el scroll
+        content_layout.add_widget(Widget(size_hint_y=None, height=dp(50)))
+        
+        # Fondo extra que cubre todo el contenido del scroll
+        with scroll_view.canvas.before:
+            Color(0.95, 0.95, 0.95, 1)
+            self.scroll_background = Rectangle(size=scroll_view.size, pos=scroll_view.pos)
+        scroll_view.bind(size=self.update_scroll_background, pos=self.update_scroll_background)
 
-        def update_text_size(instance, value):
-            titulo.text_size = (content_layout.width, None)
-            eslogan.text_size = (content_layout.width, None)
-            quienes_somos.text_size = (content_layout.width, None)
-
-        content_layout.bind(width=update_text_size)
-
-        main_layout.add_widget(content_layout)
+        scroll_view.add_widget(content_layout)
+        main_layout.add_widget(scroll_view)
         self.add_widget(main_layout)
 
     def update_background_rect(self, instance, value):
         self.background_rect.size = instance.size
         self.background_rect.pos = instance.pos
+    
+    def update_scroll_background(self, instance, value):
+        """Actualiza el fondo del ScrollView para evitar negro"""
+        self.scroll_background.size = instance.size
+        self.scroll_background.pos = instance.pos
+    
+    def on_window_resize(self, instance, width, height):
+        Clock.schedule_once(lambda dt: self.build_ui(), 0.1)
 
-    def update_center_layout(self, instance, value):
-        instance.pos_hint = {'center_x': 0.5, 'center_y': 0.5}
 
-    def ir_a_inicio_sesion(self, instance):
-        self.manager.current = 'inicio_sesion'
-
-    def ir_a_registro(self, instance):
-        self.manager.current = 'registro'
-
+# ------------------ APLICACIÓN ------------------
 class MyApp(App):
     def build(self):
-       
+        # Configuración de ventana inicial multiplataforma
+        if ResponsiveHelper.is_desktop():
+            Window.size = (1280, 720)
+            Window.minimum_width = 800
+            Window.minimum_height = 600
+        
         sm = ScreenManager()
         sm.add_widget(MainInScreen(name='main'))
         sm.add_widget(ConocenosScreen(name='conocenos'))
@@ -505,8 +657,28 @@ class MyApp(App):
         sm.add_widget(VerInfoScreen(name='cuenta'))
         sm.add_widget(ActualizarDatosScreen(name='actualizar'))
         sm.add_widget(CombatesScreen(name='combates_anteriores'))
-
+        # ActualizarTorneoScreen se agregará dinámicamente cuando se necesite
         return sm
+    
+    def agregar_pantalla_actualizar_torneo(self, torneo_data, on_save_callback):
+        """
+        Método para agregar dinámicamente la pantalla de actualizar torneo
+        """
+        sm = self.root
+        
+        # Remover pantalla anterior si existe
+        if sm.has_screen('actualizar_torneos'):
+            sm.remove_widget(sm.get_screen('actualizar_torneos'))
+        
+        # Crear y agregar nueva pantalla con los datos
+        screen = ActualizarTorneoScreen(
+            name='actualizar_torneos',
+            torneo_data=torneo_data,
+            on_save=on_save_callback
+        )
+        sm.add_widget(screen)
+        sm.current = 'actualizar_torneos'
+
 
 if __name__ == '__main__':
     MyApp().run()

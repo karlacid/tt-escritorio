@@ -14,10 +14,53 @@ from kivy.metrics import dp, sp
 from kivy.uix.widget import Widget
 from kivy.uix.spinner import Spinner
 from kivy.properties import ObjectProperty
+from kivy.utils import platform
 from datetime import datetime, date
 import calendar
 
 
+# ------------------ UTILIDADES RESPONSIVE ------------------
+class ResponsiveHelper:
+    @staticmethod
+    def is_mobile():
+        return platform in ['android', 'ios']
+    
+    @staticmethod
+    def is_desktop():
+        return platform in ['win', 'linux', 'macosx']
+    
+    @staticmethod
+    def get_form_width():
+        width = Window.width
+        if width < 600:
+            return 0.95
+        elif width < 900:
+            return 0.85
+        elif width < 1200:
+            return 0.75
+        else:
+            return 0.65
+    
+    @staticmethod
+    def get_font_size(base_size):
+        width = Window.width
+        if width < 600:
+            return sp(base_size * 0.8)
+        elif width < 900:
+            return sp(base_size * 0.9)
+        return sp(base_size)
+    
+    @staticmethod
+    def get_popup_size():
+        width = Window.width
+        height = Window.height
+        if width < 600:
+            return (width * 0.9, min(height * 0.5, dp(350)))
+        else:
+            return (min(width * 0.7, dp(500)), min(height * 0.5, dp(400)))
+
+
+# ------------------ SELECTORES RESPONSIVE ------------------
 class DateSelector(BoxLayout):
     selected_date = ObjectProperty(date.today())
     
@@ -28,7 +71,6 @@ class DateSelector(BoxLayout):
         self.size_hint_y = None
         self.height = dp(55)
         
-        # Parsear fecha inicial si se proporciona
         if initial_date:
             try:
                 day, month, year = map(int, initial_date.split('/'))
@@ -38,37 +80,32 @@ class DateSelector(BoxLayout):
         else:
             initial_date = date.today()
         
-        # Años (desde el actual hasta 10 años atrás para fechas de nacimiento)
         current_year = initial_date.year
         self.year_spinner = Spinner(
             text=str(current_year),
             values=[str(y) for y in range(current_year - 100, current_year + 1)],
             size_hint=(0.3, 1),
-            font_size=sp(20),
+            font_size=ResponsiveHelper.get_font_size(18),
             background_color=(0.1, 0.4, 0.7, 0.9),
             color=(1, 1, 1, 1)
         )
         
-        # Meses en español
-        meses_espanol = [
-            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-        ]
+        meses_espanol = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         
         self.month_spinner = Spinner(
             text=meses_espanol[initial_date.month - 1],
             values=meses_espanol,
             size_hint=(0.4, 1),
-            font_size=sp(20),
+            font_size=ResponsiveHelper.get_font_size(18),
             background_color=(0.1, 0.4, 0.7, 0.9),
             color=(1, 1, 1, 1))
         
-        # Días (se actualizará según mes y año)
         self.day_spinner = Spinner(
             text=str(initial_date.day),
             values=[],
             size_hint=(0.3, 1),
-            font_size=sp(20),
+            font_size=ResponsiveHelper.get_font_size(18),
             background_color=(0.1, 0.4, 0.7, 0.9),
             color=(1, 1, 1, 1))
         
@@ -76,12 +113,14 @@ class DateSelector(BoxLayout):
         self.add_widget(self.month_spinner)
         self.add_widget(self.year_spinner)
         
-       
         self.update_days()
-        
-       
         self.month_spinner.bind(text=self.update_days_on_change)
         self.year_spinner.bind(text=self.update_days_on_change)
+        Window.bind(on_resize=self.on_window_resize)
+        
+    def on_window_resize(self, instance, width, height):
+        for spinner in [self.year_spinner, self.month_spinner, self.day_spinner]:
+            spinner.font_size = ResponsiveHelper.get_font_size(18)
         
     def update_days_on_change(self, *args):
         self.update_days()
@@ -92,11 +131,8 @@ class DateSelector(BoxLayout):
         year = self.year_spinner.text
         
         if month and year:
-            # Convertir mes en español a número
-            meses_espanol = [
-                "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-            ]
+            meses_espanol = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                           "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
             month_num = meses_espanol.index(month) + 1
             year_num = int(year)
             _, num_days = calendar.monthrange(year_num, month_num)
@@ -105,17 +141,14 @@ class DateSelector(BoxLayout):
             days = [str(d) for d in range(1, num_days + 1)]
             self.day_spinner.values = days
             
-            # Asegurarse de que el día seleccionado sea válido
             if str(current_day) not in days:
                 current_day = 1
             self.day_spinner.text = str(current_day)
             
     def get_selected_date(self):
         try:
-            meses_espanol = [
-                "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-            ]
+            meses_espanol = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                           "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
             month_num = meses_espanol.index(self.month_spinner.text) + 1
             day = int(self.day_spinner.text)
             year = int(self.year_spinner.text)
@@ -139,7 +172,6 @@ class TimeSelector(BoxLayout):
         self.size_hint_y = None
         self.height = dp(55)
         
-        # Parsear hora inicial si se proporciona
         if initial_time:
             try:
                 hour, minute = map(int, initial_time.split(':'))
@@ -149,35 +181,37 @@ class TimeSelector(BoxLayout):
         else:
             initial_time = datetime.now().time()
         
-        # Horas
         self.hour_spinner = Spinner(
             text=f"{initial_time.hour:02d}",
             values=[f"{h:02d}" for h in range(0, 24)],
             size_hint=(0.45, 1),
-            font_size=sp(20),
+            font_size=ResponsiveHelper.get_font_size(18),
             background_color=(0.1, 0.4, 0.7, 0.9),
             color=(1, 1, 1, 1))
         
-        # Minutos
-        minute = (initial_time.minute // 5) * 5  # Redondear a múltiplos de 5
+        minute = (initial_time.minute // 5) * 5
         self.minute_spinner = Spinner(
             text=f"{minute:02d}",
             values=[f"{m:02d}" for m in range(0, 60, 5)],
             size_hint=(0.45, 1),
-            font_size=sp(20),
+            font_size=ResponsiveHelper.get_font_size(18),
             background_color=(0.1, 0.4, 0.7, 0.9),
             color=(1, 1, 1, 1))
         
         self.add_widget(self.hour_spinner)
-        self.add_widget(Label(text=":", size_hint=(0.1, 1)))
+        self.add_widget(Label(text=":", size_hint=(0.1, 1), 
+                             font_size=ResponsiveHelper.get_font_size(24),
+                             color=(0.1, 0.4, 0.7, 1)))
         self.add_widget(self.minute_spinner)
         
-        # Configurar hora inicial
         self.get_selected_time()
-        
-        # Bind para actualizar cuando cambia
         self.hour_spinner.bind(text=self.update_time)
         self.minute_spinner.bind(text=self.update_time)
+        Window.bind(on_resize=self.on_window_resize)
+        
+    def on_window_resize(self, instance, width, height):
+        self.hour_spinner.font_size = ResponsiveHelper.get_font_size(18)
+        self.minute_spinner.font_size = ResponsiveHelper.get_font_size(18)
         
     def update_time(self, *args):
         self.get_selected_time()
@@ -203,29 +237,24 @@ class RoundsSelector(BoxLayout):
         super().__init__(**kwargs)
         self.orientation = 'horizontal'
         self.spacing = dp(5)
-        self.size_hint = (1, None)  # Asegura que ocupe todo el ancho disponible
+        self.size_hint = (1, None)
         self.height = dp(55)
        
-        # Selector de número de rounds (1-5)
         self.rounds_spinner = Spinner(
             text=str(initial_rounds),
             values=[str(r) for r in range(1, 6)],
-            size_hint=(1, 1),  # 60% del ancho para el spinner
-            font_size=sp(20),
+            size_hint=(1, 1),
+            font_size=ResponsiveHelper.get_font_size(18),
             background_color=(0.1, 0.4, 0.7, 0.9),
-            color=(1, 1, 1, 1)
-        )
-        
-        
+            color=(1, 1, 1, 1))
         
         self.add_widget(self.rounds_spinner)
-
-        
-        # Configurar valor inicial
         self.get_selected_rounds()
-        
-        # Bind para actualizar cuando cambia
         self.rounds_spinner.bind(text=self.update_rounds)
+        Window.bind(on_resize=self.on_window_resize)
+        
+    def on_window_resize(self, instance, width, height):
+        self.rounds_spinner.font_size = ResponsiveHelper.get_font_size(18)
         
     def update_rounds(self, *args):
         self.get_selected_rounds()
@@ -247,43 +276,42 @@ class DurationSelector(BoxLayout):
         self.orientation = 'horizontal'
         self.spacing = dp(5)
         self.size_hint_y = None
-        self.height = dp(55)  # Misma altura que el selector de hora
+        self.height = dp(55)
         
-        # Minutos (0-10)
         self.minutes_spinner = Spinner(
             text=str(initial_minutes),
             values=[str(m) for m in range(0, 11)],
-            size_hint=(0.3, 1),  # Ajustado para igualar selector de hora
-            font_size=sp(20),
+            size_hint=(0.3, 1),
+            font_size=ResponsiveHelper.get_font_size(18),
             background_color=(0.1, 0.4, 0.7, 0.9),
-            color=(1, 1, 1, 1)
-        )
+            color=(1, 1, 1, 1))
         
-        # Separador
-        self.add_widget(Label(text=":", size_hint=(0.1, 1), font_size=sp(20)))
+        self.add_widget(self.minutes_spinner)
+        self.add_widget(Label(text="min", size_hint=(0.15, 1), 
+                             font_size=ResponsiveHelper.get_font_size(14),
+                             color=(0.1, 0.4, 0.7, 1)))
         
-        # Segundos (0-59, en intervalos de 5)
         self.seconds_spinner = Spinner(
             text=f"{initial_seconds:02d}",
             values=[f"{s:02d}" for s in range(0, 60, 5)],
-            size_hint=(0.3, 1),  # Ajustado para igualar selector de hora
-            font_size=sp(20),
+            size_hint=(0.3, 1),
+            font_size=ResponsiveHelper.get_font_size(18),
             background_color=(0.1, 0.4, 0.7, 0.9),
-            color=(1, 1, 1, 1)
-        )
+            color=(1, 1, 1, 1))
         
-        # Etiqueta de minutos
-        self.add_widget(self.minutes_spinner)
-        self.add_widget(Label(text="min", size_hint=(0.1, 1), font_size=sp(16)))
         self.add_widget(self.seconds_spinner)
-        self.add_widget(Label(text="seg", size_hint=(0.1, 1), font_size=sp(16)))
+        self.add_widget(Label(text="seg", size_hint=(0.15, 1), 
+                             font_size=ResponsiveHelper.get_font_size(14),
+                             color=(0.1, 0.4, 0.7, 1)))
         
-        # Configurar valores iniciales
         self.get_selected_duration()
-        
-        # Bind para actualizar cuando cambia
         self.minutes_spinner.bind(text=self.update_duration)
         self.seconds_spinner.bind(text=self.update_duration)
+        Window.bind(on_resize=self.on_window_resize)
+        
+    def on_window_resize(self, instance, width, height):
+        self.minutes_spinner.font_size = ResponsiveHelper.get_font_size(18)
+        self.seconds_spinner.font_size = ResponsiveHelper.get_font_size(18)
         
     def update_duration(self, *args):
         self.get_selected_duration()
@@ -310,33 +338,23 @@ class CategoriaPesoSelector(BoxLayout):
         self.size_hint_y = None
         self.height = dp(55)
         
-        # Categorías de peso
-        categorias = [
-            "Fin", 
-            "Fly", 
-            "Bantam", 
-            "Feather", 
-            "Light", 
-            "Welter", 
-            "Middle", 
-            "Heavy"
-        ]
+        categorias = ["Fin", "Fly", "Bantam", "Feather", "Light", "Welter", "Middle", "Heavy"]
         
         self.category_spinner = Spinner(
             text=initial_category if initial_category else categorias[0],
             values=categorias,
             size_hint=(1, 1),
-            font_size=sp(20),
+            font_size=ResponsiveHelper.get_font_size(18),
             background_color=(0.1, 0.4, 0.7, 0.9),
             color=(1, 1, 1, 1))
         
         self.add_widget(self.category_spinner)
-        
-        # Configurar valor inicial
         self.get_selected_category()
-        
-        # Bind para actualizar cuando cambia
         self.category_spinner.bind(text=self.update_category)
+        Window.bind(on_resize=self.on_window_resize)
+        
+    def on_window_resize(self, instance, width, height):
+        self.category_spinner.font_size = ResponsiveHelper.get_font_size(18)
         
     def update_category(self, *args):
         self.get_selected_category()
@@ -355,69 +373,52 @@ class RoundedTextInput(TextInput):
         self.multiline = False
         self.size_hint_y = None
         self.height = dp(55)
-        self.padding = [dp(8), dp(8), dp(8), dp(8)]
-        self.font_size = sp(24)
+        self.padding = [dp(15), dp(15), dp(15), dp(15)]
+        self.font_size = ResponsiveHelper.get_font_size(18)
         self.color = (1, 1, 1, 1)
-        self.hint_text_color = (0.9, 0.9, 0.9, 0.9)
+        self.hint_text_color = (0.9, 0.9, 0.9, 0.8)
         self.cursor_color = (1, 1, 1, 1)
         self.selection_color = (0.2, 0.6, 1, 0.5)
         self.bold = True
 
         with self.canvas.before:
             Color(0.1, 0.4, 0.7, 0.9)
-            self.bg_rect = RoundedRectangle(
-                pos=self.pos,
-                size=self.size,
-                radius=[dp(12)]
-            )
-
+            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
             Color(1, 1, 1, 0.3)
             self.border_rect = RoundedRectangle(
                 pos=(self.pos[0]+dp(2), self.pos[1]+dp(2)),
                 size=(self.size[0]-dp(4), self.size[1]-dp(4)),
-                radius=[dp(8)]
-            )
+                radius=[dp(10)])
 
         self.bind(pos=self._update_rects, size=self._update_rects)
+        Window.bind(on_resize=self.on_window_resize)
 
     def _update_rects(self, *args):
         self.bg_rect.pos = self.pos
         self.bg_rect.size = self.size
         self.border_rect.pos = (self.pos[0]+dp(2), self.pos[1]+dp(2))
         self.border_rect.size = (self.size[0]-dp(4), self.size[1]-dp(4))
+    
+    def on_window_resize(self, instance, width, height):
+        self.font_size = ResponsiveHelper.get_font_size(18)
 
     def on_focus(self, instance, value):
-        if value:
-            self.canvas.before.clear()
-            with self.canvas.before:
+        self.canvas.before.clear()
+        with self.canvas.before:
+            if value:
                 Color(0.2, 0.5, 0.9, 1)
-                self.bg_rect = RoundedRectangle(
-                    pos=self.pos,
-                    size=self.size,
-                    radius=[dp(12)]
-                )
+                self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
                 Color(1, 1, 1, 0.5)
-                self.border_rect = RoundedRectangle(
-                    pos=(self.pos[0]+dp(2), self.pos[1]+dp(2)),
-                    size=(self.size[0]-dp(4), self.size[1]-dp(4)),
-                    radius=[dp(8)]
-                )
-        else:
-            self._update_rects()
-            self.canvas.before.clear()
-            with self.canvas.before:
+            else:
                 Color(0.1, 0.4, 0.7, 0.9)
-                self.bg_rect = RoundedRectangle(
-                    pos=self.pos,
-                    size=self.size,
-                    radius=[dp(12)]
-                )
+                self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
                 Color(1, 1, 1, 0.3)
-                self.border_rect = RoundedRectangle(
-                    pos=(self.pos[0]+dp(2), self.pos[1]+dp(2)),
-                    size=(self.size[0]-dp(4), self.size[1]-dp(4)),
-                    radius=[dp(8)]
-                )
+            self.border_rect = RoundedRectangle(
+                pos=(self.pos[0]+dp(2), self.pos[1]+dp(2)),
+                size=(self.size[0]-dp(4), self.size[1]-dp(4)),
+                radius=[dp(10)])
+        if not value:
+            self._update_rects()
 
 
 class HoverButton(Button):
@@ -428,356 +429,259 @@ class HoverButton(Button):
         self.color = (1, 1, 1, 1)
         self.size_hint_y = None
         self.height = dp(50)
-        self.font_size = dp(20)
+        self.font_size = ResponsiveHelper.get_font_size(18)
         self.bold = True
-        self.border_radius = dp(10)
+        self.border_radius = dp(12)
 
         with self.canvas.before:
             Color(*self.background_color)
             self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[self.border_radius])
 
         self.bind(pos=self.update_rect, size=self.update_rect)
+        Window.bind(on_resize=self.on_window_resize)
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
+    
+    def on_window_resize(self, instance, width, height):
+        self.font_size = ResponsiveHelper.get_font_size(18)
 
 
 class CrearCombateScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.build_ui()
+        Window.bind(on_resize=self.on_window_resize)
 
-        # Layout principal
-        main_layout = BoxLayout(
-            orientation='vertical',
-            padding=[dp(20), dp(10)],
-            spacing=dp(10)
-        )
+    def build_ui(self):
+        self.clear_widgets()
+        
+        scroll_view = ScrollView(size_hint=(1, 1), do_scroll_x=False, bar_width=dp(10), scroll_type=['bars', 'content'])
+        
+        main_layout = BoxLayout(orientation='vertical', padding=[dp(20), dp(30), dp(20), dp(30)], 
+                               spacing=dp(15), size_hint_y=None)
+        main_layout.bind(minimum_height=main_layout.setter('height'))
 
         with main_layout.canvas.before:
             Color(0.95, 0.95, 0.95, 1)
-            self.background_rect = Rectangle(size=Window.size, pos=self.pos)
+            self.background_rect = Rectangle(size=main_layout.size, pos=main_layout.pos)
+        main_layout.bind(size=self.update_background, pos=self.update_background)
 
-        self.bind(size=self.update_background, pos=self.update_background)
+        main_layout.add_widget(Widget(size_hint_y=None, height=max(dp(15), Window.height * 0.02)))
 
-        # Logo
-        logo = Image(
-            source="Imagen5-Photoroom.png",
-            size_hint=(1, None),
-            height=dp(120),
-            pos_hint={'center_x': 0.5}
-        )
-        main_layout.add_widget(logo)
-
-        # ScrollView para el formulario
-        scroll_view = ScrollView(
-            size_hint=(1, 1),
-            do_scroll_x=False,
-            bar_width=dp(10),
-            scroll_type=['bars', 'content']
-        )
-
-        # Contenedor del formulario
-        form_container = BoxLayout(
-            orientation='vertical',
-            size_hint=(1, None),
-            spacing=dp(12),
-            padding=[dp(30), dp(20), dp(30), dp(20)],
-            pos_hint={'center_x': 0.5}
-        )
+        form_container = BoxLayout(orientation='vertical', size_hint=(ResponsiveHelper.get_form_width(), None),
+                                  pos_hint={'center_x': 0.5}, spacing=dp(12))
         form_container.bind(minimum_height=form_container.setter('height'))
 
-        # Título
-        titulo = Label(
-            text='CREAR COMBATE',
-            font_size=dp(32),
-            color=(0.1, 0.4, 0.7),
-            bold=True,
-            size_hint_y=None,
-            height=dp(60)
-        )
-        form_container.add_widget(titulo)
+        logo = Image(source="Imagen5-Photoroom.png", size_hint=(1, None), 
+                    height=min(dp(100), Window.height * 0.12), allow_stretch=True, keep_ratio=True)
+        form_container.add_widget(logo)
 
-        # Función para crear campos de entrada con etiqueta
+        titulo = Label(text='CREAR COMBATE', font_size=ResponsiveHelper.get_font_size(32),
+                      color=(0.1, 0.4, 0.7, 1), bold=True, size_hint_y=None, height=dp(60))
+        form_container.add_widget(titulo)
+        form_container.add_widget(Widget(size_hint_y=None, height=dp(10)))
+
         def crear_campo(texto, hint_text=None, widget=None):
-            campo_layout = BoxLayout(
-                orientation='vertical',
-                spacing=dp(5),
-                size_hint_y=None,
-                height=dp(85)
-            )
-            campo_layout.add_widget(Label(
-                text=texto,
-                font_size=dp(18),
-                color=(0.1, 0.1, 0.2, 1),
-                size_hint_y=None,
-                height=dp(25)
-            ))
+            campo_layout = BoxLayout(orientation='vertical', spacing=dp(8), size_hint_y=None)
+            campo_layout.bind(minimum_height=campo_layout.setter('height'))
+            
+            label = Label(text=texto, font_size=ResponsiveHelper.get_font_size(18),
+                         color=(0.1, 0.1, 0.2, 1), size_hint_y=None, height=dp(30), halign='left')
+            label.bind(size=label.setter('text_size'))
+            campo_layout.add_widget(label)
+            
             if widget:
                 campo_layout.add_widget(widget)
+                return campo_layout, widget
             else:
                 input_field = RoundedTextInput(hint_text=hint_text)
                 campo_layout.add_widget(input_field)
                 return campo_layout, input_field
-            return campo_layout, widget
 
-        # Sección 1: Competidores
-        competidores_label = Label(
-            text='Datos de los Competidores',
-            font_size=dp(26),
-            color=(0.1, 0.4, 0.7),
-            bold=True,
-            size_hint_y=None,
-            height=dp(50)
-        )
-        form_container.add_widget(competidores_label)
+        def crear_titulo_seccion(texto, size=26):
+            return Label(text=texto, font_size=ResponsiveHelper.get_font_size(size),
+                        color=(0.1, 0.4, 0.7, 1), bold=True, size_hint_y=None, height=dp(45))
 
-        # Competidor 1
-        competidor1_label = Label(
-            text='COMPETIDOR 1',
-            font_size=dp(22),
-            color=(0.1, 0.4, 0.7),
-            bold=True,
-            size_hint_y=None,
-            height=dp(40)
-        )
-        form_container.add_widget(competidor1_label)
-
-        competidor1_layout, self.competidor1_input = crear_campo('Nombre(s) ', 'Nombre(s) ')
-        form_container.add_widget(competidor1_layout)
-
-        # Selector de fecha de nacimiento para competidor 1
+        # COMPETIDORES
+        form_container.add_widget(crear_titulo_seccion('Datos de los Competidores'))
+        form_container.add_widget(crear_titulo_seccion('COMPETIDOR 1', 22))
+        
+        c1_layout, self.competidor1_input = crear_campo('Nombre(s)', 'Nombre(s)')
+        form_container.add_widget(c1_layout)
+        
         self.fecha_nac1_selector = DateSelector()
-        fecha_nac1_layout, _ = crear_campo('Fecha de Nacimiento', widget=self.fecha_nac1_selector)
-        form_container.add_widget(fecha_nac1_layout)
-
-        peso1_layout, self.peso1_input = crear_campo('Peso (kg)', 'Peso')
-        form_container.add_widget(peso1_layout)
-
-        altura1_layout, self.altura1_input = crear_campo('Altura (cm)', 'Altura')
-        form_container.add_widget(altura1_layout)
-
-        sexo1_layout, self.sexo1_input = crear_campo('Sexo', 'Sexo')
-        form_container.add_widget(sexo1_layout)
-
-        nacionalidad1_layout, self.nacionalidad1_input = crear_campo('Nacionalidad', 'Nacionalidad')
-        form_container.add_widget(nacionalidad1_layout)
-
-        peto_rojo_layout, self.peto_rojo_input = crear_campo('Peto Rojo ID', 'ID del peto rojo')
-        form_container.add_widget(peto_rojo_layout)
-
-        # Separador
+        fn1_layout, _ = crear_campo('Fecha de Nacimiento', widget=self.fecha_nac1_selector)
+        form_container.add_widget(fn1_layout)
+        
+        p1_layout, self.peso1_input = crear_campo('Peso (kg)', 'Peso')
+        form_container.add_widget(p1_layout)
+        
+        a1_layout, self.altura1_input = crear_campo('Altura (cm)', 'Altura')
+        form_container.add_widget(a1_layout)
+        
+        s1_layout, self.sexo1_input = crear_campo('Sexo', 'Sexo')
+        form_container.add_widget(s1_layout)
+        
+        n1_layout, self.nacionalidad1_input = crear_campo('Nacionalidad', 'Nacionalidad')
+        form_container.add_widget(n1_layout)
+        
+        pr_layout, self.peto_rojo_input = crear_campo('Peto Rojo ID', 'ID del peto rojo')
+        form_container.add_widget(pr_layout)
+        
         form_container.add_widget(Widget(size_hint_y=None, height=dp(20)))
-
-        # Competidor 2
-        competidor2_label = Label(
-            text='COMPETIDOR 2',
-            font_size=dp(22),
-            color=(0.1, 0.4, 0.7),
-            bold=True,
-            size_hint_y=None,
-            height=dp(40)
-        )
-        form_container.add_widget(competidor2_label)
-
-        competidor2_layout, self.competidor2_input = crear_campo('Nombre(s) ', 'Nombre(s) ')
-        form_container.add_widget(competidor2_layout)
-
-        # Selector de fecha de nacimiento para competidor 2
+        
+        form_container.add_widget(crear_titulo_seccion('COMPETIDOR 2', 22))
+        
+        c2_layout, self.competidor2_input = crear_campo('Nombre(s)', 'Nombre(s)')
+        form_container.add_widget(c2_layout)
+        
         self.fecha_nac2_selector = DateSelector()
-        fecha_nac2_layout, _ = crear_campo('Fecha de Nacimiento', widget=self.fecha_nac2_selector)
-        form_container.add_widget(fecha_nac2_layout)
-
-        peso2_layout, self.peso2_input = crear_campo('Peso (kg)', 'Peso')
-        form_container.add_widget(peso2_layout)
-
-        altura2_layout, self.altura2_input = crear_campo('Altura (cm)', 'Altura')
-        form_container.add_widget(altura2_layout)
-
-        sexo2_layout, self.sexo2_input = crear_campo('Sexo', 'Sexo')
-        form_container.add_widget(sexo2_layout)
-
-        nacionalidad2_layout, self.nacionalidad2_input = crear_campo('Nacionalidad', 'Nacionalidad')
-        form_container.add_widget(nacionalidad2_layout)
-
-        peto_azul_layout, self.peto_azul_input = crear_campo('Peto Azul ID', 'ID del peto azul')
-        form_container.add_widget(peto_azul_layout)
-
-        # Separador
+        fn2_layout, _ = crear_campo('Fecha de Nacimiento', widget=self.fecha_nac2_selector)
+        form_container.add_widget(fn2_layout)
+        
+        p2_layout, self.peso2_input = crear_campo('Peso (kg)', 'Peso')
+        form_container.add_widget(p2_layout)
+        
+        a2_layout, self.altura2_input = crear_campo('Altura (cm)', 'Altura')
+        form_container.add_widget(a2_layout)
+        
+        s2_layout, self.sexo2_input = crear_campo('Sexo', 'Sexo')
+        form_container.add_widget(s2_layout)
+        
+        n2_layout, self.nacionalidad2_input = crear_campo('Nacionalidad', 'Nacionalidad')
+        form_container.add_widget(n2_layout)
+        
+        pa_layout, self.peto_azul_input = crear_campo('Peto Azul ID', 'ID del peto azul')
+        form_container.add_widget(pa_layout)
+        
         form_container.add_widget(Widget(size_hint_y=None, height=dp(20)))
 
-        # Sección 2: Datos del Combate
-        combate_label = Label(
-            text='Datos del Combate',
-            font_size=dp(26),
-            color=(0.1, 0.4, 0.7),
-            bold=True,
-            size_hint_y=None,
-            height=dp(50)
-        )
-        form_container.add_widget(combate_label)
-
-        # Selector de fecha del combate
+        # DATOS DEL COMBATE
+        form_container.add_widget(crear_titulo_seccion('Datos del Combate'))
+        
         self.fecha_combate_selector = DateSelector()
-        fecha_combate_layout, _ = crear_campo('Fecha del Combate', widget=self.fecha_combate_selector)
-        form_container.add_widget(fecha_combate_layout)
-
-        # Selector de hora del combate
+        fc_layout, _ = crear_campo('Fecha del Combate', widget=self.fecha_combate_selector)
+        form_container.add_widget(fc_layout)
+        
         self.hora_combate_selector = TimeSelector()
-        hora_combate_layout, _ = crear_campo('Hora del Combate', widget=self.hora_combate_selector)
-        form_container.add_widget(hora_combate_layout)
-
+        hc_layout, _ = crear_campo('Hora del Combate', widget=self.hora_combate_selector)
+        form_container.add_widget(hc_layout)
+        
         area_layout, self.area_input = crear_campo('Área de Combate', 'Ej: Área A, Tatami 1')
         form_container.add_widget(area_layout)
-
-        # Selector de categoría de peso
+        
         self.categoria_peso_selector = CategoriaPesoSelector()
-        categoria_peso_layout, _ = crear_campo('Categoría', widget=self.categoria_peso_selector)
-        form_container.add_widget(categoria_peso_layout)
-
-        # Selector de número de rounds
+        cp_layout, _ = crear_campo('Categoría', widget=self.categoria_peso_selector)
+        form_container.add_widget(cp_layout)
+        
         self.rounds_selector = RoundsSelector(initial_rounds=3)
-        rounds_layout, _ = crear_campo('Número de Rounds', widget=self.rounds_selector)
-        form_container.add_widget(rounds_layout)
-
-        # Selector de duración del round (minutos y segundos)
+        r_layout, _ = crear_campo('Número de Rounds', widget=self.rounds_selector)
+        form_container.add_widget(r_layout)
+        
         self.duracion_round_selector = DurationSelector(initial_minutes=3, initial_seconds=0)
-        duracion_round_layout, _ = crear_campo('Duración del Round', widget=self.duracion_round_selector)
-        form_container.add_widget(duracion_round_layout)
-
-        # Selector de duración del descanso (minutos y segundos)
+        dr_layout, _ = crear_campo('Duración del Round', widget=self.duracion_round_selector)
+        form_container.add_widget(dr_layout)
+        
         self.duracion_descanso_selector = DurationSelector(initial_minutes=1, initial_seconds=0)
-        duracion_descanso_layout, _ = crear_campo('Duración del Descanso', widget=self.duracion_descanso_selector)
-        form_container.add_widget(duracion_descanso_layout)
-
-        # Separador
+        dd_layout, _ = crear_campo('Duración del Descanso', widget=self.duracion_descanso_selector)
+        form_container.add_widget(dd_layout)
+        
         form_container.add_widget(Widget(size_hint_y=None, height=dp(20)))
 
-        # Sección 3: Jueces
-        jueces_label = Label(
-            text='Jueces',
-            font_size=dp(26),
-            color=(0.1, 0.4, 0.7),
-            bold=True,
-            size_hint_y=None,
-            height=dp(50)
-        )
-        form_container.add_widget(jueces_label)
+        # JUECES
+        form_container.add_widget(crear_titulo_seccion('Jueces'))
+        form_container.add_widget(crear_titulo_seccion('JUEZ CENTRAL', 22))
+        
+        an_layout, self.arbitro_nombre_input = crear_campo('Nombre(s)', 'Nombre(s) del árbitro')
+        form_container.add_widget(an_layout)
+        
+        aa_layout, self.arbitro_Apellidos_input = crear_campo('Apellidos', 'Apellidos del árbitro')
+        form_container.add_widget(aa_layout)
+        
+        form_container.add_widget(crear_titulo_seccion('JUEZ 1', 22))
+        
+        j1n_layout, self.juez1_nombre_input = crear_campo('Nombre(s)', 'Nombre(s) del juez 1')
+        form_container.add_widget(j1n_layout)
+        
+        j1a_layout, self.juez1_Apellidos_input = crear_campo('Apellidos', 'Apellidos del juez 1')
+        form_container.add_widget(j1a_layout)
+        
+        form_container.add_widget(crear_titulo_seccion('JUEZ 2', 22))
+        
+        j2n_layout, self.juez2_nombre_input = crear_campo('Nombre(s)', 'Nombre(s) del juez 2')
+        form_container.add_widget(j2n_layout)
+        
+        j2a_layout, self.juez2_Apellidos_input = crear_campo('Apellidos', 'Apellidos del juez 2')
+        form_container.add_widget(j2a_layout)
+        
+        form_container.add_widget(crear_titulo_seccion('JUEZ 3', 22))
+        
+        j3n_layout, self.juez3_nombre_input = crear_campo('Nombre(s)', 'Nombre(s) del juez 3')
+        form_container.add_widget(j3n_layout)
+        
+        j3a_layout, self.juez3_Apellidos_input = crear_campo('Apellidos', 'Apellidos del juez 3')
+        form_container.add_widget(j3a_layout)
+        
+        form_container.add_widget(Widget(size_hint_y=None, height=dp(15)))
 
-        # Juez Central
-        arbitro_label = Label(
-            text='JUEZ CENTRAL',
-            font_size=dp(22),
-            color=(0.1, 0.4, 0.7),
-            bold=True,
-            size_hint_y=None,
-            height=dp(40)
-        )
-        form_container.add_widget(arbitro_label)
-
-        arbitro_nombre_layout, self.arbitro_nombre_input = crear_campo('Nombre(s)', 'Nombre(s) del árbitro')
-        form_container.add_widget(arbitro_nombre_layout)
-
-        arbitro_Apellidos_layout, self.arbitro_Apellidos_input = crear_campo('Apellidos', 'Apellidos del árbitro')
-        form_container.add_widget(arbitro_Apellidos_layout)
-
-        # Juez 1
-        juez1_label = Label(
-            text='JUEZ 1',
-            font_size=dp(22),
-            color=(0.1, 0.4, 0.7),
-            bold=True,
-            size_hint_y=None,
-            height=dp(40)
-        )
-        form_container.add_widget(juez1_label)
-
-        juez1_nombre_layout, self.juez1_nombre_input = crear_campo('Nombre(s)', 'Nombre(s) del juez 1')
-        form_container.add_widget(juez1_nombre_layout)
-
-        juez1_Apellidos_layout, self.juez1_Apellidos_input = crear_campo('Apellidos', 'Apellidos del juez 1')
-        form_container.add_widget(juez1_Apellidos_layout)
-
-        # Juez 2
-        juez2_label = Label(
-            text='JUEZ 2',
-            font_size=dp(22),
-            color=(0.1, 0.4, 0.7),
-            bold=True,
-            size_hint_y=None,
-            height=dp(40)
-        )
-        form_container.add_widget(juez2_label)
-
-        juez2_nombre_layout, self.juez2_nombre_input = crear_campo('Nombre(s)', 'Nombre(s) del juez 2')
-        form_container.add_widget(juez2_nombre_layout)
-
-        juez2_Apellidos_layout, self.juez2_Apellidos_input = crear_campo('Apellidos', 'Apellidos del juez 2')
-        form_container.add_widget(juez2_Apellidos_layout)
-
-        # Juez 3
-        juez3_label = Label(
-            text='JUEZ 3',
-            font_size=dp(22),
-            color=(0.1, 0.4, 0.7),
-            bold=True,
-            size_hint_y=None,
-            height=dp(40)
-        )
-        form_container.add_widget(juez3_label)
-
-        juez3_nombre_layout, self.juez3_nombre_input = crear_campo('Nombre(s)', 'Nombre(s) del juez 3')
-        form_container.add_widget(juez3_nombre_layout)
-
-        juez3_Apellidos_layout, self.juez3_Apellidos_input = crear_campo('Apellidos', 'Apellidos del juez 3')
-        form_container.add_widget(juez3_Apellidos_layout)
-
-        # Botones
+        # BOTONES
         botones_layout = BoxLayout(
-            orientation='horizontal',
-            spacing=dp(20),
+            orientation='horizontal' if Window.width > 600 else 'vertical',
+            spacing=dp(15),
             size_hint_y=None,
-            height=dp(50),
-            padding=[0, dp(20), 0, 0]
+            height=dp(50) if Window.width > 600 else dp(110)
         )
 
         btn_crear = HoverButton(text='CREAR COMBATE')
         btn_crear.bind(on_press=self.crear_combate)
         botones_layout.add_widget(btn_crear)
 
-        btn_volver = HoverButton(text='VOLVER', background_color=(0.7, 0.1, 0.1, 1))
+        btn_volver = HoverButton(text='VOLVER')
+        btn_volver.canvas.before.clear()
+        with btn_volver.canvas.before:
+            Color(0.7, 0.1, 0.1, 1)
+            btn_volver.rect = RoundedRectangle(
+                pos=btn_volver.pos,
+                size=btn_volver.size,
+                radius=[btn_volver.border_radius]
+            )
         btn_volver.bind(on_press=self.volver_a_principal)
         botones_layout.add_widget(btn_volver)
 
         form_container.add_widget(botones_layout)
 
-        scroll_view.add_widget(form_container)
-        main_layout.add_widget(scroll_view)
-        self.add_widget(main_layout)
+        main_layout.add_widget(form_container)
+        main_layout.add_widget(Widget(size_hint_y=None, height=dp(30)))
 
-    def update_background(self, *args):
-        self.background_rect.size = Window.size
-        self.background_rect.pos = self.pos
+        scroll_view.add_widget(main_layout)
+        self.add_widget(scroll_view)
+
+    def update_background(self, instance, value):
+        self.background_rect.size = instance.size
+        self.background_rect.pos = instance.pos
+
+    def on_window_resize(self, instance, width, height):
+        Clock.schedule_once(lambda dt: self.build_ui(), 0.1)
 
     def mostrar_mensaje(self, titulo, mensaje):
         content = BoxLayout(orientation='vertical', spacing=dp(15), padding=dp(20))
 
-        popup_width = dp(450) - 2 * dp(20)  # Ancho del popup menos el padding horizontal
+        popup_size = ResponsiveHelper.get_popup_size()
+        text_width = popup_size[0] - dp(40)
 
         lbl_mensaje = Label(
             text=mensaje,
-            color=(0.2, 0.6, 1, 1),
-            font_size=sp(20),
+            color=(0.5, 0.8, 1, 1),
+            font_size=ResponsiveHelper.get_font_size(18),
             halign='center',
             valign='middle',
             size_hint_y=None,
             height=dp(80),
-            text_size=(popup_width, None),
-            shorten=False,
-            mipmap=True,
-            line_height=1.2
+            text_size=(text_width, None)
         )
-        lbl_mensaje.bind(texture_size=lbl_mensaje.setter('size'))
+        lbl_mensaje.bind(size=lbl_mensaje.setter('text_size'))
         content.add_widget(lbl_mensaje)
 
         btn_aceptar = Button(
@@ -788,37 +692,32 @@ class CrearCombateScreen(Screen):
             background_color=(0.2, 0.6, 1, 1),
             color=(1, 1, 1, 1),
             bold=True,
-            font_size=sp(18))
+            font_size=ResponsiveHelper.get_font_size(18)
+        )
 
         popup = Popup(
             title=titulo,
-            title_color=(0.2, 0.6, 1, 1),
-            title_size=sp(22),
+            title_color=(1, 1, 1, 1),
+            title_size=ResponsiveHelper.get_font_size(22),
             title_align='center',
             content=content,
             size_hint=(None, None),
-            size=(dp(450), dp(250)),
+            size=popup_size,
             separator_height=0,
             background=''
         )
 
         with popup.canvas.before:
             Color(0.1, 0.4, 0.7, 1)
-            popup.rect = RoundedRectangle(
-                pos=popup.pos,
-                size=popup.size,
-                radius=[dp(15)]
-            )
+            popup.rect = RoundedRectangle(pos=popup.pos, size=popup.size, radius=[dp(15)])
 
         def update_popup_rect(instance, value):
             instance.rect.pos = instance.pos
             instance.rect.size = instance.size
 
         popup.bind(pos=update_popup_rect, size=update_popup_rect)
-
         btn_aceptar.bind(on_press=popup.dismiss)
         content.add_widget(btn_aceptar)
-
         popup.open()
 
     def mostrar_popup_campos_faltantes(self, campos_faltantes):
@@ -828,45 +727,44 @@ class CrearCombateScreen(Screen):
 
         titulo_label = Label(
             text='Campos Obligatorios Faltantes:',
-            font_size=sp(20),
-            color=(0.2, 0.6, 1, 1),
+            font_size=ResponsiveHelper.get_font_size(20),
+            color=(0.5, 0.8, 1, 1),
             bold=True,
             size_hint_y=None,
-            height=dp(30)
+            height=dp(40)
         )
         lista_campos.add_widget(titulo_label)
 
         for campo in campos_faltantes:
             label_campo = Label(
                 text=f"• {campo}",
-                font_size=sp(18),
-                color=(0.1, 0.1, 0.2, 1),
+                font_size=ResponsiveHelper.get_font_size(16),
+                color=(0.5, 0.8, 1, 1),
                 size_hint_y=None,
-                height=dp(30)
+                height=dp(35),
+                halign='left'
             )
+            label_campo.bind(size=label_campo.setter('text_size'))
             lista_campos.add_widget(label_campo)
 
         content.add_widget(lista_campos)
 
+        popup_size = ResponsiveHelper.get_popup_size()
         popup = Popup(
             title='¡Atención!',
-            title_color=(0.2, 0.6, 1, 1),
-            title_size=sp(22),
+            title_color=(1, 1, 1, 1),
+            title_size=ResponsiveHelper.get_font_size(22),
             title_align='center',
             content=content,
             size_hint=(None, None),
-            size=(dp(500), dp(400)),
+            size=popup_size,
             separator_height=0,
             background=''
         )
 
         with popup.canvas.before:
             Color(0.1, 0.4, 0.7, 1)
-            popup.rect = RoundedRectangle(
-                pos=popup.pos,
-                size=popup.size,
-                radius=[dp(15)]
-            )
+            popup.rect = RoundedRectangle(pos=popup.pos, size=popup.size, radius=[dp(15)])
 
         def update_popup_rect(instance, value):
             instance.rect.pos = instance.pos
@@ -882,14 +780,13 @@ class CrearCombateScreen(Screen):
             background_color=(0.2, 0.6, 1, 1),
             color=(1, 1, 1, 1),
             bold=True,
-            font_size=sp(18))
+            font_size=ResponsiveHelper.get_font_size(18)
+        )
         btn_cerrar.bind(on_press=popup.dismiss)
         lista_campos.add_widget(btn_cerrar)
-
         popup.open()
 
     def crear_combate(self, instance):
-        # Lista de campos obligatorios con sus widgets y mensajes
         required_fields = [
             (self.competidor1_input, "Nombre(s) del Competidor 1"),
             (self.peso1_input, "Peso del Competidor 1 (kg)"),
@@ -914,15 +811,12 @@ class CrearCombateScreen(Screen):
             (self.juez3_Apellidos_input, "Apellidos del Juez 3")
         ]
 
-        # Encontrar campos vacíos y crear una lista de mensajes
         campos_faltantes = [mensaje for campo, mensaje in required_fields if not campo.text.strip()]
 
-        # Si hay campos faltantes, mostrar el popup con la lista
         if campos_faltantes:
             self.mostrar_popup_campos_faltantes(campos_faltantes)
             return
 
-        # Validar pesos numéricos
         try:
             float(self.peso1_input.text)
             float(self.peso2_input.text)
@@ -930,7 +824,6 @@ class CrearCombateScreen(Screen):
             self.mostrar_mensaje("Error", "Los pesos deben ser números válidos")
             return
 
-        # Validar alturas numéricas
         try:
             float(self.altura1_input.text)
             float(self.altura2_input.text)
@@ -938,7 +831,6 @@ class CrearCombateScreen(Screen):
             self.mostrar_mensaje("Error", "Las alturas deben ser números válidos")
             return
 
-        # Obtener todos los datos seleccionados
         fecha_combate = self.fecha_combate_selector.get_formatted_date()
         hora_combate = self.hora_combate_selector.get_formatted_time()
         categoria_peso = self.categoria_peso_selector.get_selected_category()
@@ -946,7 +838,6 @@ class CrearCombateScreen(Screen):
         duracion_round = self.duracion_round_selector.get_formatted_duration()
         duracion_descanso = self.duracion_descanso_selector.get_formatted_duration()
 
-        # Mostrar mensaje de éxito con todos los datos
         self.mostrar_mensaje(
             "¡Combate creado!",
             f"El combate entre {self.competidor1_input.text} y {self.competidor2_input.text} ha sido creado con éxito\n"
@@ -959,7 +850,6 @@ class CrearCombateScreen(Screen):
             f"La contraseña que debes compartir es 36782398"
         )
 
-        # Limpiar campos después de creación exitosa
         for widget in self.walk():
             if isinstance(widget, TextInput):
                 widget.text = ""

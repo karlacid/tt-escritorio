@@ -5,12 +5,15 @@ from kivy.uix.button import Button
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import NumericProperty, StringProperty
 from kivy.clock import Clock
-from kivy.utils import get_color_from_hex
+from kivy.utils import get_color_from_hex, platform
 from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.uix.popup import Popup
+from kivy.uix.scrollview import ScrollView
 from kivy.metrics import dp, sp
+from kivy.core.window import Window
 
-"""import requests
+""""
+import requests
 try:
     respuesta = requests.get("http://localhost:8080/apiAlumnos/alumno/1", json=datos)
     if respuesta.status_code == 201:
@@ -30,6 +33,57 @@ except Exception as e:
     self.ids.mensaje.text = f"Fallo conexión: {str(e)}"
 """
 
+
+# ------------------ UTILIDADES RESPONSIVE ------------------
+class ResponsiveHelper:
+    @staticmethod
+    def is_mobile():
+        return platform in ['android', 'ios']
+    
+    @staticmethod
+    def is_desktop():
+        return platform in ['win', 'linux', 'macosx']
+    
+    @staticmethod
+    def get_font_size(base_size):
+        """Retorna tamaño de fuente responsive"""
+        width = Window.width
+        height = Window.height
+        min_dimension = min(width, height)
+        
+        if min_dimension < 600:
+            return sp(base_size * 0.6)
+        elif min_dimension < 900:
+            return sp(base_size * 0.75)
+        elif min_dimension < 1200:
+            return sp(base_size * 0.9)
+        return sp(base_size)
+    
+    @staticmethod
+    def get_popup_size():
+        """Retorna tamaño apropiado para popups"""
+        width = Window.width
+        height = Window.height
+        if width < 600:
+            return (width * 0.9, min(height * 0.4, dp(300)))
+        else:
+            return (min(width * 0.6, dp(450)), min(height * 0.35, dp(250)))
+    
+    @staticmethod
+    def get_layout_orientation():
+        """Determina si el layout debe ser horizontal o vertical"""
+        return 'horizontal' if Window.width > Window.height and Window.width > 800 else 'vertical'
+    
+    @staticmethod
+    def get_button_height():
+        """Retorna altura de botones responsive"""
+        width = Window.width
+        if width < 600:
+            return dp(40)
+        return dp(50)
+
+
+# ------------------ PANEL DE COMPETIDOR RESPONSIVE ------------------
 class CompetitorPanel(BoxLayout):
     score = NumericProperty(0)
     penalty_score = NumericProperty(0)
@@ -37,10 +91,17 @@ class CompetitorPanel(BoxLayout):
     def __init__(self, name, color, nationality="", **kwargs):
         super().__init__(**kwargs)
         self.orientation = 'vertical'
-        self.spacing = 15
         self.name = name
         self.bg_color = get_color_from_hex(color)
         self.nationality = nationality
+        
+        self.build_ui()
+        Window.bind(on_resize=self.on_window_resize)
+
+    def build_ui(self):
+        self.clear_widgets()
+        self.spacing = dp(10)
+        self.padding = [dp(10), dp(15)]
 
         with self.canvas.before:
             Color(*self.bg_color)
@@ -48,35 +109,130 @@ class CompetitorPanel(BoxLayout):
 
         self.bind(pos=self.update_rect, size=self.update_rect)
 
+        # Nacionalidad
         if self.nationality:
-            self.add_widget(Label(text=self.nationality.upper(), font_size=20, bold=True, color=(1, 1, 1, 1)))
+            nationality_label = Label(
+                text=self.nationality.upper(),
+                font_size=ResponsiveHelper.get_font_size(18),
+                bold=True,
+                color=(1, 1, 1, 1),
+                size_hint_y=None,
+                height=dp(30)
+            )
+            self.add_widget(nationality_label)
 
-        self.add_widget(Label(text=name, font_size=30, bold=True, color=(1, 1, 1, 1)))
+        # Nombre del competidor
+        name_label = Label(
+            text=self.name,
+            font_size=ResponsiveHelper.get_font_size(28),
+            bold=True,
+            color=(1, 1, 1, 1),
+            size_hint_y=None,
+            height=dp(50)
+        )
+        self.add_widget(name_label)
 
-        score_layout = BoxLayout(size_hint=(1, 0.4), spacing=10)
-        score_layout.add_widget(Button(text="-", on_press=lambda x: self.update_score(-1),
-                                       font_size=30, background_color=(0.2, 0.2, 0.2, 1), color=(1, 1, 1, 1)))
-        self.score_label = Label(text="0", font_size=60, color=(1, 1, 1, 1))
+        # Espaciador flexible
+        self.add_widget(BoxLayout(size_hint_y=0.1))
+
+        # Puntuación principal
+        score_layout = BoxLayout(
+            size_hint_y=None,
+            height=dp(80),
+            spacing=dp(10),
+            padding=[dp(5), 0]
+        )
+        
+        btn_minus_score = Button(
+            text="-",
+            on_press=lambda x: self.update_score(-1),
+            font_size=ResponsiveHelper.get_font_size(25),
+            background_color=(0.2, 0.2, 0.2, 1),
+            color=(1, 1, 1, 1),
+            bold=True
+        )
+        score_layout.add_widget(btn_minus_score)
+        
+        self.score_label = Label(
+            text="0",
+            font_size=ResponsiveHelper.get_font_size(50),
+            color=(1, 1, 1, 1),
+            bold=True
+        )
         score_layout.add_widget(self.score_label)
-        score_layout.add_widget(Button(text="+", on_press=lambda x: self.update_score(1),
-                                       font_size=30, background_color=(0.2, 0.2, 0.2, 1), color=(1, 1, 1, 1)))
+        
+        btn_plus_score = Button(
+            text="+",
+            on_press=lambda x: self.update_score(1),
+            font_size=ResponsiveHelper.get_font_size(25),
+            background_color=(0.2, 0.2, 0.2, 1),
+            color=(1, 1, 1, 1),
+            bold=True
+        )
+        score_layout.add_widget(btn_plus_score)
+        
         self.add_widget(score_layout)
 
-        self.add_widget(Label(text="GAM-JEOM", font_size=20, color=(1, 1, 1, 1)))
+        # Espaciador
+        self.add_widget(BoxLayout(size_hint_y=0.05))
 
-        penalty_layout = BoxLayout(size_hint=(1, 0.4), spacing=10)
-        penalty_layout.add_widget(Button(text="-", on_press=lambda x: self.update_penalty(-1),
-                                         font_size=30, background_color=(0.2, 0.2, 0.2, 1), color=(1, 1, 1, 1)))
-        self.penalty_label = Label(text="0", font_size=40, color=(1, 1, 1, 1))
+        # Etiqueta GAM-JEOM
+        gam_jeom_label = Label(
+            text="GAM-JEOM",
+            font_size=ResponsiveHelper.get_font_size(18),
+            color=(1, 1, 1, 1),
+            size_hint_y=None,
+            height=dp(30)
+        )
+        self.add_widget(gam_jeom_label)
+
+        # Penalizaciones
+        penalty_layout = BoxLayout(
+            size_hint_y=None,
+            height=dp(70),
+            spacing=dp(10),
+            padding=[dp(5), 0]
+        )
+        
+        btn_minus_penalty = Button(
+            text="-",
+            on_press=lambda x: self.update_penalty(-1),
+            font_size=ResponsiveHelper.get_font_size(25),
+            background_color=(0.2, 0.2, 0.2, 1),
+            color=(1, 1, 1, 1),
+            bold=True
+        )
+        penalty_layout.add_widget(btn_minus_penalty)
+        
+        self.penalty_label = Label(
+            text="0",
+            font_size=ResponsiveHelper.get_font_size(35),
+            color=(1, 1, 1, 1),
+            bold=True
+        )
         penalty_layout.add_widget(self.penalty_label)
-        penalty_layout.add_widget(Button(text="+", on_press=lambda x: self.update_penalty(1),
-                                         font_size=30, background_color=(0.2, 0.2, 0.2, 1), color=(1, 1, 1, 1)))
-
+        
+        btn_plus_penalty = Button(
+            text="+",
+            on_press=lambda x: self.update_penalty(1),
+            font_size=ResponsiveHelper.get_font_size(25),
+            background_color=(0.2, 0.2, 0.2, 1),
+            color=(1, 1, 1, 1),
+            bold=True
+        )
+        penalty_layout.add_widget(btn_plus_penalty)
+        
         self.add_widget(penalty_layout)
+
+        # Espaciador final
+        self.add_widget(BoxLayout(size_hint_y=0.1))
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
+
+    def on_window_resize(self, instance, width, height):
+        Clock.schedule_once(lambda dt: self.build_ui(), 0.1)
 
     def update_penalty(self, value):
         self.penalty_score += value
@@ -90,58 +246,159 @@ class CompetitorPanel(BoxLayout):
             self.score = 0
         self.score_label.text = str(self.score)
 
+
+# ------------------ PANEL CENTRAL RESPONSIVE ------------------
 class CenterPanel(BoxLayout):
     time_str = StringProperty("00:00")
     round_str = StringProperty("Round 1")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.orientation = 'vertical'
-        self.spacing = 20
-        self.padding = 10
         self.timer_running = False
         self.elapsed_time = 0
         self.round_number = 1
+        
+        self.build_ui()
+        Window.bind(on_resize=self.on_window_resize)
+
+    def build_ui(self):
+        self.clear_widgets()
+        self.orientation = 'vertical'
+        self.spacing = dp(15)
+        self.padding = [dp(15), dp(20)]
 
         with self.canvas.before:
             Color(1, 1, 1, 1)
             self.rect = Rectangle(pos=self.pos, size=self.size)
         self.bind(pos=self.update_rect, size=self.update_rect)
 
-        self.add_widget(Label(text="RONDA ACTUAL", font_size=20, color=(0, 0, 0, 1)))
-        self.round_label = Label(text=self.round_str, font_size=40, color=(0, 0, 0, 1))
+        # Ronda actual
+        round_title = Label(
+            text="RONDA ACTUAL",
+            font_size=ResponsiveHelper.get_font_size(18),
+            color=(0, 0, 0, 1),
+            size_hint_y=None,
+            height=dp(30)
+        )
+        self.add_widget(round_title)
+        
+        self.round_label = Label(
+            text=self.round_str,
+            font_size=ResponsiveHelper.get_font_size(35),
+            color=(0, 0, 0, 1),
+            bold=True,
+            size_hint_y=None,
+            height=dp(50)
+        )
         self.add_widget(self.round_label)
 
-        self.add_widget(Label(text="TIEMPO", font_size=20, color=(0, 0, 0, 1)))
-        self.time_label = Label(text=self.time_str, font_size=50, color=(0, 0, 0, 1))
+        # Espaciador
+        self.add_widget(BoxLayout(size_hint_y=0.1))
+
+        # Tiempo
+        time_title = Label(
+            text="TIEMPO",
+            font_size=ResponsiveHelper.get_font_size(18),
+            color=(0, 0, 0, 1),
+            size_hint_y=None,
+            height=dp(30)
+        )
+        self.add_widget(time_title)
+        
+        self.time_label = Label(
+            text=self.time_str,
+            font_size=ResponsiveHelper.get_font_size(45),
+            color=(0, 0, 0, 1),
+            bold=True,
+            size_hint_y=None,
+            height=dp(60)
+        )
         self.bind(time_str=self.time_label.setter('text'))
         self.add_widget(self.time_label)
 
-        btn_layout = BoxLayout(size_hint=(1, 0.3), spacing=10)
-        btn_layout.add_widget(Button(text="PAUSA", on_press=lambda x: self.pause_timer(),
-                                     background_color=(0.1, 0.4, 0.7, 1), color=(1, 1, 1, 1)))
-        btn_layout.add_widget(Button(text="PLAY", on_press=lambda x: self.start_timer(),
-                                     background_color=(0.1, 0.4, 0.7, 1), color=(1, 1, 1, 1)))
+        # Espaciador
+        self.add_widget(BoxLayout(size_hint_y=0.2))
+
+        # Botones de control
+        btn_layout = BoxLayout(
+            size_hint_y=None,
+            height=ResponsiveHelper.get_button_height(),
+            spacing=dp(10)
+        )
+        
+        btn_pause = Button(
+            text="PAUSA",
+            on_press=lambda x: self.pause_timer(),
+            background_color=(0.1, 0.4, 0.7, 1),
+            color=(1, 1, 1, 1),
+            font_size=ResponsiveHelper.get_font_size(16),
+            bold=True
+        )
+        btn_layout.add_widget(btn_pause)
+        
+        btn_play = Button(
+            text="PLAY",
+            on_press=lambda x: self.start_timer(),
+            background_color=(0.1, 0.4, 0.7, 1),
+            color=(1, 1, 1, 1),
+            font_size=ResponsiveHelper.get_font_size(16),
+            bold=True
+        )
+        btn_layout.add_widget(btn_play)
+        
         self.add_widget(btn_layout)
 
-        self.next_round_button = Button(text="SIGUIENTE RONDA", size_hint=(1, 0.2),
-                                        background_color=(0.1, 0.4, 0.7, 1), color=(1, 1, 1, 1),
-                                        on_press=self.show_next_round_confirmation)
+        # Espaciador
+        self.add_widget(BoxLayout(size_hint_y=0.1))
+
+        # Botón siguiente ronda
+        self.next_round_button = Button(
+            text="SIGUIENTE RONDA",
+            size_hint_y=None,
+            height=ResponsiveHelper.get_button_height(),
+            background_color=(0.1, 0.4, 0.7, 1),
+            color=(1, 1, 1, 1),
+            font_size=ResponsiveHelper.get_font_size(16),
+            bold=True,
+            on_press=self.show_next_round_confirmation
+        )
         self.add_widget(self.next_round_button)
 
-        self.end_button = Button(text="FINALIZAR COMBATE", size_hint=(1, 0.2),
-                                 background_color=(0.1, 0.4, 0.7, 1), color=(1, 1, 1, 1),
-                                 on_press=self.show_end_combat_confirmation)
+        # Botón finalizar combate
+        self.end_button = Button(
+            text="FINALIZAR COMBATE",
+            size_hint_y=None,
+            height=ResponsiveHelper.get_button_height(),
+            background_color=(0.1, 0.4, 0.7, 1),
+            color=(1, 1, 1, 1),
+            font_size=ResponsiveHelper.get_font_size(16),
+            bold=True,
+            on_press=self.show_end_combat_confirmation
+        )
         self.add_widget(self.end_button)
         
-        self.back_button = Button(text="SALIR", size_hint=(1, 0.2),
-                                 background_color=(0.1, 0.4, 0.7, 1), color=(1, 1, 1, 1),
-                                 on_press=self.go_back)
+        # Botón salir
+        self.back_button = Button(
+            text="SALIR",
+            size_hint_y=None,
+            height=ResponsiveHelper.get_button_height(),
+            background_color=(0.7, 0.1, 0.1, 1),
+            color=(1, 1, 1, 1),
+            font_size=ResponsiveHelper.get_font_size(16),
+            bold=True,
+            on_press=self.go_back
+        )
         self.add_widget(self.back_button)
+
+        # Espaciador final
+        self.add_widget(BoxLayout(size_hint_y=0.1))
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
+
+    def on_window_resize(self, instance, width, height):
+        Clock.schedule_once(lambda dt: self.build_ui(), 0.1)
 
     def start_timer(self):
         if not self.timer_running:
@@ -159,28 +416,39 @@ class CenterPanel(BoxLayout):
         self.time_str = f"{minutes:02}:{seconds:02}"
 
     def mostrar_mensaje(self, titulo, mensaje, confirm_callback=None):
-        content = BoxLayout(orientation='vertical', spacing=dp(15), padding=dp(20))
+        content = BoxLayout(
+            orientation='vertical',
+            spacing=dp(15),
+            padding=dp(20)
+        )
         
         lbl_mensaje = Label(
             text=mensaje,
-            color=(0.2, 0.6, 1, 1),
-            font_size=sp(20),
+            color=(0.5, 0.8, 1, 1),
+            font_size=ResponsiveHelper.get_font_size(18),
             halign='center',
             valign='middle',
             size_hint_y=None,
-            height=dp(80))
+            height=dp(80)
+        )
+        lbl_mensaje.bind(size=lbl_mensaje.setter('text_size'))
         content.add_widget(lbl_mensaje)
         
-        btn_layout = BoxLayout(spacing=dp(10), size_hint_y=None, height=dp(50))
+        btn_layout = BoxLayout(
+            spacing=dp(10),
+            size_hint_y=None,
+            height=ResponsiveHelper.get_button_height()
+        )
         
+        popup_size = ResponsiveHelper.get_popup_size()
         popup = Popup(
             title=titulo,
-            title_color=(0.2, 0.6, 1, 1),
-            title_size=sp(22),
+            title_color=(1, 1, 1, 1),
+            title_size=ResponsiveHelper.get_font_size(22),
             title_align='center',
             content=content,
             size_hint=(None, None),
-            size=(dp(450), dp(250)),
+            size=popup_size,
             separator_height=0,
             background=''
         )
@@ -193,7 +461,8 @@ class CenterPanel(BoxLayout):
                 background_color=(0.8, 0.2, 0.2, 1),
                 color=(1, 1, 1, 1),
                 bold=True,
-                font_size=sp(18))
+                font_size=ResponsiveHelper.get_font_size(16)
+            )
             btn_cancelar.bind(on_press=popup.dismiss)
             btn_layout.add_widget(btn_cancelar)
         
@@ -205,7 +474,8 @@ class CenterPanel(BoxLayout):
             background_color=(0.2, 0.6, 1, 1),
             color=(1, 1, 1, 1),
             bold=True,
-            font_size=sp(18))
+            font_size=ResponsiveHelper.get_font_size(16)
+        )
         
         if confirm_callback:
             btn_aceptar.bind(on_press=lambda x: [popup.dismiss(), confirm_callback()])
@@ -220,7 +490,7 @@ class CenterPanel(BoxLayout):
             popup.rect = RoundedRectangle(
                 pos=popup.pos,
                 size=popup.size,
-                radius=[dp(10)]
+                radius=[dp(15)]
             )
         
         def update_popup_rect(instance, value):
@@ -233,7 +503,7 @@ class CenterPanel(BoxLayout):
     def show_next_round_confirmation(self, instance):
         self.mostrar_mensaje(
             titulo="Confirmar Siguiente Ronda",
-            mensaje="¿Estás seguro de avanzar a\na la siguiente ronda?",
+            mensaje="¿Estás seguro de avanzar\na la siguiente ronda?",
             confirm_callback=lambda: self.next_round(instance)
         )
 
@@ -278,21 +548,55 @@ class CenterPanel(BoxLayout):
     def confirm_go_back(self):
         self.parent.parent.parent.current = 'ini_juez'
 
+
+# ------------------ PANTALLA PRINCIPAL RESPONSIVE ------------------
 class MainScreentabc(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.name = 'tablero_central'
+        self.build_ui()
+        Window.bind(on_resize=self.on_window_resize)
         
-        main_layout = BoxLayout(spacing=0)
+    def build_ui(self):
+        self.clear_widgets()
         
-        self.com1_panel = CompetitorPanel(name="COM1", color="#1E88E5", nationality="KOR")
+        # Determinar orientación según tamaño de ventana
+        orientation = ResponsiveHelper.get_layout_orientation()
+        
+        main_layout = BoxLayout(
+            orientation=orientation,
+            spacing=0
+        )
+        
+        self.com1_panel = CompetitorPanel(
+            name="COM1",
+            color="#1E88E5",
+            nationality="KOR"
+        )
         main_layout.add_widget(self.com1_panel)
 
         self.center_panel = CenterPanel()
         main_layout.add_widget(self.center_panel)
 
-        self.com2_panel = CompetitorPanel(name="COM2", color="#E53935", nationality="USA")
+        self.com2_panel = CompetitorPanel(
+            name="COM2",
+            color="#E53935",
+            nationality="USA"
+        )
         main_layout.add_widget(self.com2_panel)
 
         self.add_widget(main_layout)
 
+    def on_window_resize(self, instance, width, height):
+        Clock.schedule_once(lambda dt: self.build_ui(), 0.1)
+
+
+# ------------------ APP DE PRUEBA ------------------
+if __name__ == '__main__':
+    class TestApp(App):
+        def build(self):
+            sm = ScreenManager()
+            sm.add_widget(MainScreentabc(name='tablero_central'))
+            return sm
+    
+    TestApp().run()

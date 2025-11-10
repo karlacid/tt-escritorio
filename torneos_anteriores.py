@@ -13,7 +13,9 @@ from kivy.uix.popup import Popup
 from kivy.uix.textinput import TextInput
 from kivy.utils import platform
 from kivy.clock import Clock
-
+from threading import Thread
+from datetime import datetime
+from api_client import api
 
 # ------------------ UTILIDADES RESPONSIVE ------------------
 class ResponsiveHelper:
@@ -397,11 +399,117 @@ class TorneoCard(BoxLayout):
 
 # ------------------ PANTALLA DE TORNEOS ANTERIORES ------------------
 class TorneosAnterioresScreen(Screen):
+
+    def _map_torneo(self, t: dict) -> dict:
+        nombre = t.get("nombre") or f"Torneo #{t.get('idTorneo', 's/n')}"
+        fecha = "—"
+        hora_inicio = "—"
+        hora_fin = "—" 
+
+        fh = t.get("fechaHora")
+        if fh:
+            try:
+             
+                fh_clean = fh.replace('Z', '+00:00') if fh.endswith('Z') else fh
+                dt = datetime.fromisoformat(fh_clean)
+                fecha = dt.strftime('%Y-%m-%d')
+                hora_inicio = dt.strftime('%H:%M')
+            except Exception:
+           
+                pass
+
+        return {
+            "nombre": nombre,
+            "fecha": fecha,
+            "hora_inicio": hora_inicio,
+            "hora_fin": hora_fin,
+            "Sede": t.get("sede") or "—",
+            "idTorneo": t.get("idTorneo")
+        }
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.build_ui()
         Window.bind(on_resize=self.on_window_resize)
 
+    def on_enter(self, *args):
+        self.fetch_torneos()
+
+    def fetch_torneos(self):
+        self.torneos_data = []
+        self.grid.clear_widgets()
+        loading = Label(
+            text="Cargando torneos...",
+            font_size=ResponsiveHelper.get_font_size(18),
+            color=(0.2, 0.4, 0.7, 1),
+            size_hint_y=None,
+            height=dp(40)
+        )
+        self.grid.add_widget(loading)
+
+        def _task():
+            try:
+                resp = api.get_json("/apiTorneos/torneo")  # debe enviar Accept: application/json
+                status = resp.status_code
+                if status == 200:
+                    try:
+                        data = resp.json() or []
+                    except Exception:
+                        data = []
+                    # mapear
+                    mapped = [self._map_torneo(t) for t in data]
+                    def _ok(dt):
+                        self.torneos_data = mapped
+                        self.populate_torneos()
+                    Clock.schedule_once(_ok, 0)
+                else:
+                    def _err(dt):
+                        self._show_error(f"Error {status} al consultar torneos.")
+                    Clock.schedule_once(_err, 0)
+            except Exception as e:
+                def _err(dt, m=str(e)):
+                    self._show_error(f"No se pudo obtener torneos.\n{m}")
+                Clock.schedule_once(_err, 0)
+
+        Thread(target=_task, daemon=True).start()
+
+
+    def _show_error(self, msg: str):
+        popup = Popup(
+            title="Error",
+            size_hint=(None, None),
+            size=ResponsiveHelper.get_popup_size()
+        )
+        box = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
+        box.add_widget(Label(text=msg, halign='center', valign='middle'))
+        btn = Button(text="Cerrar", size_hint_y=None, height=dp(45))
+        btn.bind(on_press=popup.dismiss)
+        box.add_widget(btn)
+        popup.content = box
+        popup.open()
+
+
+    def populate_torneos(self):
+        self.grid.clear_widgets()
+        if not getattr(self, 'torneos_data', []):
+            self.grid.add_widget(Label(
+                text="No hay torneos.",
+                font_size=ResponsiveHelper.get_font_size(18),
+                color=(0.2, 0.4, 0.7, 1),
+                size_hint_y=None,
+                height=dp(40)
+            ))
+            return
+
+        for torneo in self.torneos_data:
+            card = TorneoCard(
+                torneo_data=torneo,
+                on_delete=self.delete_torneo,
+                on_edit=self.edit_torneo
+            )
+            self.grid.add_widget(card)
+
+    
     def build_ui(self):
         self.clear_widgets()
         
@@ -536,12 +644,69 @@ class TorneosAnterioresScreen(Screen):
             )
             self.grid.add_widget(card)
 
-    def delete_torneo(self, torneo_a_eliminar):
-        self.torneos_data = [
-            torneo for torneo in self.torneos_data
-            if torneo['nombre'] != torneo_a_eliminar['nombre']
-        ]
-        self.populate_torneos()
+    def delete_torneo(self, torneo_a_eliminar: dict):
+        """
+        Handler que se ejecuta tras confirmar en el popup.
+        Si hay idTorneo, llamamos al backend. Si no, borramos localmente.
+        """
+        torneo_id = torneo_a_eliminar.get("idTorneo")
+
+        # Si no hay id, borra local y sal
+        if not torneo_id:
+            self.torneos_data = [
+                t for t in self.torneos_data
+                if t.get('nombre') != torneo_a_eliminar.get('nombre')
+            ]
+            self.populate_torneos()
+            return
+
+        # Estado visual de "eliminando..."
+        self.grid.clear_widgets()
+        self.grid.add_widget(Label(
+            text="Eliminando torneo...",
+            font_size=ResponsiveHelper.get_font_size(18),
+            color=(0.2, 0.4, 0.7, 1),
+            size_hint_y=None,
+            height=dp(40)
+        ))
+
+        def _task():
+            try:
+                resp = api.delete(f"/apiTorneos/torneo/{torneo_id}")
+                if resp.status_code in (200, 204):
+                    # Éxito: refrescar lista desde el backend si ya usas fetch_torneos
+                    def _ok(dt):
+                        # Si ya tienes fetch_torneos, úsalo:
+                        if hasattr(self, "fetch_torneos"):
+                            self.fetch_torneos()
+                        else:
+                            # Fallback por si estás con datos locales
+                            self.torneos_data = [
+                                t for t in self.torneos_data
+                                if t.get('idTorneo') != torneo_id
+                            ]
+                            self.populate_torneos()
+                    Clock.schedule_once(_ok, 0)
+                else:
+                    def _err(dt):
+                        self._show_error(f"No se pudo eliminar (HTTP {resp.status_code}).")
+                        # Recuperar la lista por si se vació visualmente
+                        if hasattr(self, "fetch_torneos"):
+                            self.fetch_torneos()
+                        else:
+                            self.populate_torneos()
+                    Clock.schedule_once(_err, 0)
+            except Exception as e:
+                def _err(dt, m=str(e)):
+                    self._show_error(f"Error eliminando torneo:\n{m}")
+                    if hasattr(self, "fetch_torneos"):
+                        self.fetch_torneos()
+                    else:
+                        self.populate_torneos()
+                Clock.schedule_once(_err, 0)
+
+        Thread(target=_task, daemon=True).start()
+
 
     def edit_torneo(self, torneo_original, nuevos_datos):
         for i, torneo in enumerate(self.torneos_data):

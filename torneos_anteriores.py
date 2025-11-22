@@ -392,10 +392,13 @@ class TorneoCard(BoxLayout):
         
         combates_screen = app.root.get_screen('combates_anteriores')
         combates_screen.torneo_nombre = self.torneo_data['nombre']
-        combates_screen.torneo_id = 1  
-        combates_screen.build_ui()
+        combates_screen.torneo_id = self.torneo_data.get('idTorneo')  # ← CAMBIO AQUÍ
+        
+        # Solo rebuildeamos si el screen ya estaba creado
+        if combates_screen in app.root.screens:
+            combates_screen.build_ui()
+        
         app.root.current = 'combates_anteriores'
-
 
 # ------------------ PANTALLA DE TORNEOS ANTERIORES ------------------
 class TorneosAnterioresScreen(Screen):

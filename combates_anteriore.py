@@ -741,36 +741,27 @@ class CombatesScreen(Screen):
         """Obtiene los combates de la API en segundo plano"""
         print("[CombatesScreen] Fetching combates from API...")
         try:
-            # Usar el cliente API
-            combates_data = api.get_all_combates()
-            print(f"[CombatesScreen] Recibidos {len(combates_data)} combates de la API")
-            
-            # Filtrar por torneo_id si es necesario
             if self.torneo_id:
-                combates_data = [
-                    c for c in combates_data 
-                    if c.get('torneo_id') == self.torneo_id
-                ]
-                print(f"[CombatesScreen] Después del filtro por torneo_id={self.torneo_id}: {len(combates_data)} combates")
+                combates_data = api.get_combates_by_torneo(self.torneo_id)
+                print(f"[CombatesScreen] Recibidos {len(combates_data)} combates del torneo {self.torneo_id}")
+            else:
+                combates_data = api.get_all_combates()
+                print(f"[CombatesScreen] Recibidos {len(combates_data)} combates de la API")
             
-            # Transformar los datos al formato que espera tu UI
+            # Ya no necesitas filtrar aquí porque el backend lo hace
             self.combates = [self._transform_combate(c) for c in combates_data]
             print(f"[CombatesScreen] Combates transformados: {len(self.combates)}")
             
-            # Actualizar la UI en el hilo principal
             Clock.schedule_once(lambda dt: self._display_combates())
                 
         except RuntimeError as e:
             print(f"[CombatesScreen] RuntimeError: {e}")
-            Clock.schedule_once(
-                lambda dt: self._show_error(str(e))
-            )
+            Clock.schedule_once(lambda dt: self._show_error(str(e)))
         except Exception as e:
             print(f"[CombatesScreen] Exception: {type(e).__name__}: {e}")
             error_msg = "No se pudo conectar al servidor" if "Connection" in str(e) else f"Error: {str(e)}"
-            Clock.schedule_once(
-                lambda dt: self._show_error(error_msg)
-            )
+            Clock.schedule_once(lambda dt: self._show_error(error_msg))
+
 
     def _transform_combate(self, api_data):
         """Transforma los datos de la API al formato que espera la UI"""

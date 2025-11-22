@@ -946,10 +946,23 @@ class CrearCombateScreen(Screen):
 
         def work():
             try:
+                try:
+                    ultimo_torneo = api.get_ultimo_torneo()
+                    if ultimo_torneo:
+                        print(f"[CrearCombate] Usando torneo: {ultimo_torneo.get('nombre')} (ID: {ultimo_torneo.get('idTorneo')})")
+                except:
+                    pass  # No es crítico si falla
+                
                 creado = api.create_combate(payload)         # POST
                 combate_id = creado.get("id") or creado.get("idCombate")
                 if not combate_id:
                     raise RuntimeError("El servidor no devolvió un id de combate.")
+
+                torneo_asignado = creado.get("idTorneo")
+                if torneo_asignado:
+                    print(f"[CrearCombate] Combate asignado al torneo ID: {torneo_asignado}")
+                else:
+                    print("[CrearCombate] ADVERTENCIA: No se asignó ningún torneo al combate")
 
                 api.prepare_combate(int(combate_id))         # POST /prepare
                 self._on_success(creado, fecha_combate_dmy, hora_combate_hm)

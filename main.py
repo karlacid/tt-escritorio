@@ -1,6 +1,5 @@
 from kivy.config import Config
 
-# ⭐ Configurar tamaño ANTES de importar cualquier cosa de Kivy
 Config.set('graphics', 'width', '1600')
 Config.set('graphics', 'height', '900')
 Config.set('graphics', 'resizable', True)

@@ -158,6 +158,27 @@ class ApiClient:
             raise RuntimeError(f"Combate {combate_id} no encontrado.")
         r.raise_for_status()
         return r.status_code in (200, 204)
+    
+    def get_combates_by_torneo(self, torneo_id: int, timeout=None) -> list:
+        """
+        GET /apiCombates/combates/torneo/{idTorneo}
+        Devuelve combates de un torneo específico.
+        """
+        r = self.get_json(f"/apiCombates/combates/torneo/{torneo_id}", timeout=timeout)
+        r.raise_for_status()
+        return r.json() if r.content else []
+    
+
+    def get_ultimo_torneo(self, timeout=None) -> dict:
+        """
+        GET /apiTorneos/torneo/ultimo
+        Obtiene el último torneo creado.
+        """
+        r = self.get_json("/apiTorneos/torneo/ultimo", timeout=timeout)
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        return r.json() if r.content else None
 
 # Instancia global del cliente
 api = ApiClient()

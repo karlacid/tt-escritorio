@@ -402,12 +402,22 @@ class InicioSesionScreen(Screen):
                     if not access_token:
                         raise Exception("Respuesta sin token")
 
+                    # Configurar el token en el API client
                     api.set_access_token(access_token)
+                    
+                    # Guardar en app.auth (tu método actual)
                     app = App.get_running_app()
                     app.auth = {"access_token": access_token, "admin": admin}
+                    
+                    # NUEVO: También guardar en SessionManager
+                    from session_manager import session
+                    session.set_session(
+                        admin_id=admin.get('idAdministrador'),
+                        admin_data=admin,
+                        access_token=access_token
+                    )
 
                     def _ok(dt):
-                        # Navega a la pantalla de inicio (ajusta el nombre: 'main' o 'ini')
                         self.manager.current = 'ini'
                         self.mostrar_mensaje("Éxito", f"Bienvenido {admin.get('usuarioAdministrador')}")
                     Clock.schedule_once(_ok, 0)
@@ -435,13 +445,11 @@ class InicioSesionScreen(Screen):
 
             except Exception as e:
                 msg = f"Ocurrió un error: {e}"
-
                 Clock.schedule_once(lambda dt, m=msg: self.mostrar_mensaje("Error", m), 0)
 
-        # Si tienes show_loading/hide_loading, úsalos:
-        if hasattr(self, "show_loading"): self.show_loading("Verificando...")
+        if hasattr(self, "show_loading"): 
+            self.show_loading("Verificando...")
         Thread(target=_task, daemon=True).start()
-
 
     def mostrar_mensaje(self, titulo, mensaje):
         content = BoxLayout(

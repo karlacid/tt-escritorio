@@ -13,6 +13,8 @@ from kivy.core.window import Window
 from kivy.clock import Clock
 from kivy.utils import platform
 from api_client import api
+from session_manager import session
+from cuenta import VerInfoScreen
 
 # ------------------ UTILIDADES RESPONSIVE ------------------
 class ResponsiveHelper:
@@ -221,7 +223,18 @@ class NavbarAuth(BoxLayout):
         App.get_running_app().root.current = 'torneos_anteriores'
     
     def ir_a_cuenta(self, instance):
-        App.get_running_app().root.current = 'cuenta'
+        # Cambiar a la pantalla de perfil/cuenta
+        app = App.get_running_app()
+        
+        # Si la pantalla de cuenta no existe, agregarla
+        if not app.root.has_screen('cuenta'):
+            try:
+                app.root.add_widget(VerInfoScreen(name='cuenta'))
+            except ImportError:
+                print("[NavbarAuth] Error: Módulo ver_info no encontrado")
+                return
+        
+        app.root.current = 'cuenta'
 
     def ir_a_crear_torneo(self, instance):
         App.get_running_app().root.current = 'crear_torneo'
@@ -267,7 +280,7 @@ class NavbarAuth(BoxLayout):
         btn_cancelar = Button(
             text='CANCELAR',
             background_normal='',
-            background_color=(0.7, 0.1, 0.1, 1),
+            background_color=(0.5, 0.5, 0.5, 1),
             color=(1, 1, 1, 1),
             bold=True,
             font_size=ResponsiveHelper.get_font_size(16)
@@ -276,7 +289,7 @@ class NavbarAuth(BoxLayout):
         btn_confirmar = Button(
             text='CONFIRMAR',
             background_normal='',
-            background_color=(0.1, 0.4, 0.7, 1),
+            background_color=(0.7, 0.1, 0.1, 1),
             color=(1, 1, 1, 1),
             bold=True,
             font_size=ResponsiveHelper.get_font_size(16)
@@ -319,11 +332,48 @@ class NavbarAuth(BoxLayout):
         self.popup.open()
 
     def cerrar_sesion(self, instance):
+        """Cierra la sesión del administrador"""
         if hasattr(self, 'popup') and self.popup:
             self.popup.dismiss()
+        
+        try:
+            # Intentar hacer logout en el backend
+            api.admin_logout()
+            print("[NavbarAuth] Logout exitoso en backend")
+        except Exception as e:
+            print(f"[NavbarAuth] Error al cerrar sesión en backend: {e}")
+        finally:
+            # Limpiar sesión local SIEMPRE (incluso si falla el backend)
+            session.clear_session()
+            api.clear_token()
+            
+            # Limpiar app.auth si existe
+            app = App.get_running_app()
+            if hasattr(app, 'auth'):
+                app.auth = None
+            
+            print("[NavbarAuth] Sesión limpiada localmente")
+            
+            # Redirigir a la pantalla de inicio de sesión
+            Clock.schedule_once(lambda dt: self._navegar_a_login(), 0.5)
+    
+    def _navegar_a_login(self):
+        """Navega a la pantalla de inicio de sesión"""
         app = App.get_running_app()
-        # Llamar al App real (MyApp) una sola vez y fuera del popup:
-        Clock.schedule_once(lambda dt: app.logout(call_backend=False), 0)
+        
+        # Intentar encontrar la pantalla de inicio de sesión
+        login_screen_names = ['inicio_sesion', 'login', 'main']
+        
+        for screen_name in login_screen_names:
+            if app.root.has_screen(screen_name):
+                app.root.current = screen_name
+                print(f"[NavbarAuth] Navegando a pantalla: {screen_name}")
+                return
+        
+        # Si no encuentra ninguna pantalla de login, intentar con el nombre por defecto
+        if hasattr(app, 'LOGIN_SCREEN_NAME'):
+            app.root.current = app.LOGIN_SCREEN_NAME
+            print(f"[NavbarAuth] Navegando a pantalla por defecto: {app.LOGIN_SCREEN_NAME}")
 
 
 # ------------------ PANTALLA PRINCIPAL RESPONSIVE ------------------
@@ -332,6 +382,32 @@ class MainInAuthScreen(Screen):
         super().__init__(**kwargs)
         self.build_ui()
         Window.bind(on_resize=self.on_window_resize)
+
+    def on_pre_enter(self):
+        """Verifica la sesión antes de entrar a la pantalla"""
+        app = App.get_running_app()
+        
+        # Si no hay sesión en SessionManager, intentar recuperarla de app.auth
+        if not session.is_logged_in() and hasattr(app, 'auth') and app.auth:
+            session.set_session_from_app(app)
+        
+        # Si aún no hay sesión, redirigir al login
+        if not session.is_logged_in():
+            print("[MainInAuthScreen] No hay sesión activa, redirigiendo a login")
+            Clock.schedule_once(lambda dt: self._ir_a_login(), 0.1)
+    
+    def _ir_a_login(self):
+        """Navega a la pantalla de login"""
+        app = App.get_running_app()
+        login_screen_names = ['inicio_sesion', 'login', 'main']
+        
+        for screen_name in login_screen_names:
+            if app.root.has_screen(screen_name):
+                app.root.current = screen_name
+                return
+        
+        if hasattr(app, 'LOGIN_SCREEN_NAME'):
+            app.root.current = app.LOGIN_SCREEN_NAME
 
     def build_ui(self):
         self.clear_widgets()
@@ -510,7 +586,8 @@ class MainInAuthScreen(Screen):
 
         self.content_container.add_widget(self.content_layout)
         scroll_view.add_widget(self.content_container)
-        self.main_layout.add_widget(scroll_view)
+        content_wrapper.add_widget(scroll_view)
+        self.main_layout.add_widget(content_wrapper)
         self.add_widget(self.main_layout)
 
     def calculate_image_height(self):
@@ -524,10 +601,6 @@ class MainInAuthScreen(Screen):
         else:
             return min(dp(300), Window.height * 0.35)
 
-    def _update_bg_rect(self, instance, value):
-        self.bg_rect.pos = instance.pos
-        self.bg_rect.size = instance.size
-
     def on_window_resize(self, instance, width, height):
         Clock.schedule_once(lambda dt: self.build_ui(), 0.1)
 
@@ -540,24 +613,32 @@ class MainApp(App):
         sm.add_widget(MainInAuthScreen(name='main_auth'))
         return sm
 
-    LOGIN_SCREEN_NAME='main'
-
+    LOGIN_SCREEN_NAME = 'inicio_sesion'  # Cambiado de 'main' a 'inicio_sesion'
     auth = None
 
     def logout(self, call_backend=True):
+        """
+        Método de logout compatible con el código existente
+        NOTA: Este método está deprecado, se recomienda usar session.clear_session()
+        """
         try:
             if call_backend:
                 try:
-                    
-                    api.post_logout()
-                except Exception:
-                    pass
+                    api.admin_logout()
+                    print("[MainApp.logout] Logout exitoso en backend")
+                except Exception as e:
+                    print(f"[MainApp.logout] Error en backend: {e}")
         finally:
             try:
+                # Limpiar sesión
+                session.clear_session()
                 api.clear_token()
-            except Exception:
-                pass
-            self.auth = None
+                self.auth = None
+                print("[MainApp.logout] Sesión limpiada")
+            except Exception as e:
+                print(f"[MainApp.logout] Error al limpiar sesión: {e}")
+            
+            # Navegar al login
             if self.root.has_screen(self.LOGIN_SCREEN_NAME):
                 self.root.current = self.LOGIN_SCREEN_NAME
 

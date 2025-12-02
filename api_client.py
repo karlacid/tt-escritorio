@@ -325,6 +325,103 @@ class ApiClient:
         except Exception as e:
             print(f"[ApiClient] Error al obtener puntaje para alumno {alumno_id}: {e}")
             return 0
+    
+    # Agregar estos métodos a la clase ApiClient en api_client.py
+
+    # ============ ENDPOINTS DE ADMINISTRADOR ============
+    
+    def get_all_administradores(self, timeout=None) -> list:
+        """
+        GET /apiAdministradores/administrador
+        Devuelve la lista de todos los administradores.
+        """
+        r = self.get_json("/apiAdministradores/administrador", timeout=timeout)
+        r.raise_for_status()
+        return r.json() if r.content else []
+
+    def get_administrador_by_id(self, admin_id: int, timeout=None) -> dict:
+        """
+        GET /apiAdministradores/administrador/{id}
+        Devuelve un administrador específico por su ID.
+        """
+        print(f"[DEBUG API] Obteniendo administrador {admin_id}")
+        
+        r = self.get_json(f"/apiAdministradores/administrador/{admin_id}", timeout=timeout)
+        
+        print(f"[DEBUG API] Status code: {r.status_code}")
+        
+        if r.status_code == 404:
+            raise RuntimeError(f"Administrador {admin_id} no encontrado.")
+        
+        r.raise_for_status()
+        
+        result = r.json() if r.content else {}
+        print(f"[DEBUG API] Administrador obtenido: {result}")
+        
+        return result
+
+    def create_administrador(self, payload: dict, timeout=None) -> dict:
+        """
+        POST /apiAdministradores/administrador
+        Crea un nuevo administrador.
+        """
+        r = self.post_json("/apiAdministradores/administrador", payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json() if r.content else {}
+
+    def update_administrador(self, admin_id: int, payload: dict, timeout=None) -> dict:
+        """
+        PUT /apiAdministradores/administrador/{id}
+        Actualiza un administrador existente.
+        """
+        print(f"[DEBUG API] Actualizando administrador {admin_id} con payload: {payload}")
+        
+        r = self.put_json(f"/apiAdministradores/administrador/{admin_id}", payload, timeout=timeout)
+        
+        print(f"[DEBUG API] Status code: {r.status_code}")
+        print(f"[DEBUG API] Response text: {r.text}")
+        
+        if r.status_code == 404:
+            raise RuntimeError(f"Administrador {admin_id} no encontrado.")
+        
+        r.raise_for_status()
+        
+        result = r.json() if r.content else {}
+        print(f"[DEBUG API] Response JSON: {result}")
+        
+        return result
+
+    def delete_administrador(self, admin_id: int, timeout=None) -> bool:
+        """
+        DELETE /apiAdministradores/administrador/{id}
+        Elimina un administrador por su ID.
+        """
+        r = self.delete(f"/apiAdministradores/administrador/{admin_id}", timeout=timeout)
+        if r.status_code == 404:
+            raise RuntimeError(f"Administrador {admin_id} no encontrado.")
+        r.raise_for_status()
+        return r.status_code in (200, 204)
+
+    def admin_login(self, login: str, password: str, timeout=None) -> dict:
+        """
+        POST /api/auth/admin/login
+        Inicia sesión como administrador.
+        Retorna: {"accessToken": "...", "tokenType": "Bearer", "expiresIn": 7200, "admin": {...}}
+        """
+        payload = {
+            "login": login,
+            "password": password
+        }
+        r = self.post_json("/api/auth/admin/login", payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json() if r.content else {}
+
+    def admin_logout(self, timeout=None):
+        """
+        POST /api/auth/admin/logout
+        Cierra sesión del administrador.
+        """
+        return self.post_logout("/api/auth/admin/logout", timeout=timeout)
 
 # Instancia global del cliente
 api = ApiClient()

@@ -87,7 +87,7 @@ class CompetitorPanel(BoxLayout):
         self.alumno_id = alumno_id
         self.combate_id = combate_id
         self.parent_screen = None  # Referencia a MainScreentabc
-        self.max_gamjeom = 5  # Máximo de faltas antes de descalificación
+        self.max_gamjeom = 3  # Máximo de faltas antes de descalificación
         
         self.build_ui()
         # Window.bind(on_resize=self.on_window_resize)
@@ -399,7 +399,7 @@ class CompetitorPanel(BoxLayout):
                         if self.parent_screen:
                             self.parent_screen.on_player_disqualified(self.alumno_id, self.name)
                     else:
-                        self.show_gamjeom_status(f"Falta {total_faltas}/5")
+                        self.show_gamjeom_status(f"Falta {total_faltas}/3")
                         Clock.schedule_once(lambda dt: self.clear_gamjeom_status(), 2)
                 else:
                     print(f"[CompetitorPanel] ✗ Error al registrar falta: {response.status_code}")
@@ -474,14 +474,14 @@ class CompetitorPanel(BoxLayout):
         self.penalty_label.text = str(count)
         
         # Cambiar color si está cerca del límite
-        if count >= 4:
+        if count >= 2:
             self.penalty_label.color = (1, 0.3, 0.3, 1)  # Rojo
-        elif count >= 3:
+        elif count >= 1:
             self.penalty_label.color = (1, 0.7, 0.3, 1)  # Naranja
         else:
             self.penalty_label.color = (1, 1, 1, 1)  # Blanco
         
-        print(f"[CompetitorPanel] ⚠️ GAM-JEOM actualizado: {self.name} = {count}")
+        print(f"[CompetitorPanel] GAM-JEOM actualizado: {self.name} = {count}")
 
     @mainthread
     def show_gamjeom_status(self, text):
@@ -531,7 +531,7 @@ class CenterPanel(BoxLayout):
 
         # Indicador de estado del combate
         self.combat_status_label = Label(
-            text="⏸ COMBATE NO INICIADO",
+            text="COMBATE NO INICIADO",
             font_size=ResponsiveHelper.get_font_size(14),
             color=(0.8, 0.2, 0.2, 1),
             bold=True,
@@ -731,21 +731,73 @@ class CenterPanel(BoxLayout):
         minutes = self.remaining_time // 60
         seconds = self.remaining_time % 60
         self.time_str = f"{minutes:02}:{seconds:02}"
-        self.rest_indicator.text = "⏸ DESCANSO"
-        self.combat_status_label.text = "⏸ DESCANSO"
+        self.rest_indicator.text = " DESCANSO"
+        self.combat_status_label.text = "DESCANSO"
         self.combat_status_label.color = (0.8, 0.6, 0, 1)
 
     def start_new_round(self):
         """Inicia un nuevo round después del descanso"""
+
+        if self.round_number >= self.numero_rounds:
+            print(f"[CenterPanel] Todos los rounds completados ({self.numero_rounds})")
+            self.end_combat_automatically()  # ← Esta línea llama al método
+            return
+        
+        # Verificar si hay rounds disponibles
+        if self.round_number >= self.numero_rounds:
+            print(f"[CenterPanel] Todos los rounds completados ({self.numero_rounds})")
+            self.end_combat_automatically()
+            return
+        
+        # Incrementar el número de round
+        self.round_number += 1
+        self.round_str = f"Round {self.round_number}"
+        self.round_label.text = self.round_str
+        print(f"[CenterPanel]  Avanzando a Round {self.round_number}")
+        
+        # Resetear el estado del combate
         self.is_rest_time = False
-        self.combat_started = True
+        self.combat_started = False  #  CAMBIO: False para que no permita puntos aún
         self.remaining_time = self.duracion_round
         minutes = self.remaining_time // 60
         seconds = self.remaining_time % 60
         self.time_str = f"{minutes:02}:{seconds:02}"
         self.rest_indicator.text = ""
-        self.combat_status_label.text = "COMBATE EN CURSO"
-        self.combat_status_label.color = (0.2, 0.7, 0.2, 1)
+        
+        # Actualizar estado visual
+        self.combat_status_label.text = " LISTO PARA INICIAR"
+        self.combat_status_label.color = (0.8, 0.6, 0, 1)
+        
+        # Resetear los contadores visuales
+        if hasattr(self, 'parent_screen') and self.parent_screen:
+            self.parent_screen.reset_competitor_scores()
+        
+        
+        # ✅ MANTENER PAUSADO: El usuario debe presionar INICIAR
+        print(f"[CenterPanel] ⏸ Round {self.round_number} listo - Presiona INICIAR para comenzar")
+
+
+
+
+    def end_combat_automatically(self):
+        """Finaliza el combate automáticamente cuando se terminan todos los rounds"""
+        self.pause_timer()
+        self.combat_started = False
+        self.is_rest_time = False
+        self.time_str = "FIN"
+        self.time_label.text = self.time_str
+        self.round_label.text = "Combate Finalizado"
+        self.rest_indicator.text = f"{self.numero_rounds} rounds completados"
+        self.combat_status_label.text = "COMBATE FINALIZADO"
+        self.combat_status_label.color = (0.5, 0.5, 0.5, 1)
+        
+        print(f"[CenterPanel] Combate finalizado automáticamente - {self.numero_rounds} rounds completados")
+        
+        # Mostrar mensaje al usuario
+        self.mostrar_mensaje(
+            titulo="Combate Finalizado",
+            mensaje=f"Se han completado los {self.numero_rounds} rounds\n\nEl combate ha finalizado"
+        )
 
     def end_combat_by_disqualification(self, player_name):
         """Termina el combate por descalificación (5 GAM-JEOM)"""
@@ -879,7 +931,7 @@ class CenterPanel(BoxLayout):
         self.time_label.text = self.time_str
         self.round_label.text = "Combate Finalizado"
         self.rest_indicator.text = ""
-        self.combat_status_label.text = "🏁 COMBATE FINALIZADO"
+        self.combat_status_label.text = "COMBATE FINALIZADO"
         self.combat_status_label.color = (0.5, 0.5, 0.5, 1)
         self.mostrar_mensaje(
             titulo="Combate Finalizado",
@@ -932,7 +984,7 @@ class MainScreentabc(Screen):
             )
             numero_rounds = combate_data.get('numeroRounds', 3)
             
-            print(f"\n[MainScreentabc] 📋 DATOS DEL COMBATE:")
+            print(f"\n[MainScreentabc]  DATOS DEL COMBATE:")
             print(f"  ID Combate: {self.combate_id}")
             print(f"  ID Alumno Rojo: {self.id_alumno_rojo}")
             print(f"  ID Alumno Azul: {self.id_alumno_azul}")
@@ -954,7 +1006,7 @@ class MainScreentabc(Screen):
         if self.combate_id and WEBSOCKET_AVAILABLE:
             self.connect_websocket()
         elif not WEBSOCKET_AVAILABLE:
-            print("⚠️ WebSocket no disponible - instala websocket-client")
+            print(" WebSocket no disponible - instala websocket-client")
     
     def parse_time_to_seconds(self, time_str):
         """Convierte HH:MM:SS a segundos totales"""
@@ -1010,9 +1062,9 @@ class MainScreentabc(Screen):
         self.add_widget(main_layout)
     
     def is_timer_active(self):
-        """Verifica si el combate ha iniciado (timer activo)"""
+        """Verifica si el combate ha iniciado (timer activo) y NO está en descanso"""
         if hasattr(self, 'center_panel') and self.center_panel:
-            return self.center_panel.is_combat_active()
+            return self.center_panel.is_combat_active() and not self.center_panel.is_rest_time
         return False
     
     def on_combat_started(self):
@@ -1022,10 +1074,10 @@ class MainScreentabc(Screen):
         self.fetch_initial_gamjeom()
 
     def on_player_disqualified(self, alumno_id, player_name):
-        """Callback cuando un jugador es descalificado por 5 GAM-JEOM"""
+        """Callback cuando un jugador es descalificado por 3 GAM-JEOM"""
         print(f"\n{'='*60}")
-        print(f"🚨 DESCALIFICACIÓN: {player_name} (ID: {alumno_id})")
-        print(f"   Ha acumulado 5 faltas GAM-JEOM")
+        print(f" DESCALIFICACIÓN: {player_name} (ID: {alumno_id})")
+        print(f"   Ha acumulado 3 GAM-JEOM")
         print(f"{'='*60}\n")
         
         # Determinar el ganador
@@ -1040,7 +1092,7 @@ class MainScreentabc(Screen):
         # Mostrar mensaje
         self.center_panel.mostrar_mensaje(
             titulo="DESCALIFICACIÓN",
-            mensaje=f"{player_name} ha sido descalificado\npor acumular 5 faltas GAM-JEOM.\n\n Ganador: {winner}"
+            mensaje=f"{player_name} ha sido descalificado\npor acumular 3 faltas GAM-JEOM.\n\n Ganador: {winner}"
         )
     
     def connect_websocket(self):
@@ -1166,10 +1218,10 @@ class MainScreentabc(Screen):
                         self.com2_panel.update_api_score(count_azul)
                         print(f"[MainScreentabc] 🔵 Puntaje inicial AZUL: {count_azul}")
                 
-                print("[MainScreentabc] ✓ Puntajes iniciales cargados\n")
+                print("[MainScreentabc] Puntajes iniciales cargados\n")
                 
             except Exception as e:
-                print(f"[MainScreentabc] ✗ Error obteniendo puntajes iniciales: {e}")
+                print(f"[MainScreentabc] Error obteniendo puntajes iniciales: {e}")
         
         Thread(target=work, daemon=True).start()
 
@@ -1193,7 +1245,7 @@ class MainScreentabc(Screen):
                         self.com2_panel.update_gamjeom_count(count_azul)
                         print(f"[MainScreentabc] 🔵 GAM-JEOM inicial AZUL: {count_azul}")
                 
-                print("[MainScreentabc] ✓ GAM-JEOM iniciales cargados\n")
+                print("[MainScreentabc] GAM-JEOM iniciales cargados\n")
                 
             except Exception as e:
                 print(f"[MainScreentabc] ✗ Error obteniendo GAM-JEOM iniciales: {e}")
@@ -1293,7 +1345,7 @@ if __name__ == '__main__':
                 print("  IMPORTANTE: Debes presionar INICIAR para que cuenten los puntos")
                 print(" Los puntajes se actualizan en tiempo real via WebSocket")
                 print(" Los botones +/- guardan directamente en la BD")
-                print(" 5 faltas GAM-JEOM = DESCALIFICACIÓN")
+                print(" 3 faltas GAM-JEOM = DESCALIFICACIÓN")
                 print("=" * 60 + "\n")
             
             Clock.schedule_once(simulate_combat_creation, 2)

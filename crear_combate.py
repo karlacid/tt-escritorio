@@ -642,7 +642,18 @@ class CrearCombateScreen(Screen):
         dd_layout, _ = crear_campo('Duración del Descanso', widget=self.duracion_descanso_selector)
         form_container.add_widget(dd_layout)
         
+        form_container.add_widget(Widget(size_hint_y=None, height=dp(10)))
+        form_container.add_widget(crear_titulo_seccion('Contraseña'))
         form_container.add_widget(Widget(size_hint_y=None, height=dp(20)))
+        
+        # CONTRASEÑA
+        cp_layout, self.contrasena_input = crear_campo('Contraseña del Combate', 'Contraseña')
+        self.contrasena_input.password = True 
+        form_container.add_widget(cp_layout)
+
+        rcp_layout, self.repetir_contrasena_input = crear_campo('Repetir Contraseña', 'Confirmar contraseña')
+        self.repetir_contrasena_input.password = True  # Ocultar texto
+        form_container.add_widget(rcp_layout)
 
         # JUECES
         form_container.add_widget(crear_titulo_seccion('Jueces'))
@@ -861,13 +872,22 @@ class CrearCombateScreen(Screen):
             (self.juez2_nombre_input, "Nombre(s) del Juez 2"),
             (self.juez2_Apellidos_input, "Apellidos del Juez 2"),
             (self.juez3_nombre_input, "Nombre(s) del Juez 3"),
-            (self.juez3_Apellidos_input, "Apellidos del Juez 3")
+            (self.juez3_Apellidos_input, "Apellidos del Juez 3"),
+            (self.contrasena_input, "Contraseña del Combate"),
+            (self.repetir_contrasena_input, "Repetir Contraseña")
         ]
 
         campos_faltantes = [msg for campo, msg in required_fields if not campo.text.strip()]
         if campos_faltantes:
             self.mostrar_popup_campos_faltantes(campos_faltantes)
             return
+
+        if self.contrasena_input.text != self.repetir_contrasena_input.text:
+            self.mostrar_mensaje("Error", "Las contraseñas no coinciden")
+            return
+        
+        if len(self.contrasena_input.text) < 6:
+            self.mostrar_mensaje("Error", "La contraseña debe tener al menos 6 caracteres")
 
         # Validaciones numéricas
         try:
@@ -943,6 +963,7 @@ class CrearCombateScreen(Screen):
             "numeroRounds": num_rounds,
             "duracionRound": dur_round_hhmmss,
             "duracionDescanso": dur_desc_hhmmss,
+            "contrasenaCombate": self.contrasena_input.text.strip(),
             "jueces": {
                 "arbitroCentral": {
                     "nombres": self.arbitro_nombre_input.text.strip(),
@@ -980,12 +1001,6 @@ class CrearCombateScreen(Screen):
                         print(f"[CrearCombate] Usando torneo: {ultimo_torneo.get('nombre')} (ID: {ultimo_torneo.get('idTorneo')})")
                 except:
                     pass  # No es crítico si falla
-
-                print("=" * 60)
-                print("[DEBUG] PAYLOAD COMPLETO:")
-                import json
-                print(json.dumps(payload, indent=2, ensure_ascii=False))
-                print("=" * 60)
                 
                 creado = api.create_combate(payload)         # POST
                 combate_id = creado.get("id") or creado.get("idCombate")
@@ -1055,19 +1070,6 @@ class CrearCombateScreen(Screen):
                 'numeroRounds': creado.get('numeroRounds')        
             }
             
-            # Debug: Verificar datos recibidos
-            print(f"[DEBUG] Datos del combate creado:")
-            print(f"  ID Combate: {combate_data['idCombate']}")
-            print(f"  ID Alumno Rojo: {combate_data['idAlumnoRojo']}")
-            print(f"  ID Alumno Azul: {combate_data['idAlumnoAzul']}")
-            print(f"  Duración Round: {combate_data['duracionRound']}")
-            print(f"  Duración Descanso: {combate_data['duracionDescanso']}")
-            print(f"  Número Rounds: {combate_data['numeroRounds']}")
-            
-            # Verificar que tenemos los IDs necesarios
-            if not combate_data['idAlumnoRojo'] or not combate_data['idAlumnoAzul']:
-                print("[ERROR] El backend NO devolvió los IDs de alumnos")
-                print("[ERROR] Verifica que modificaste correctamente el método save() en el backend")
             
             # Configurar el tablero con todos los datos
             tablero.set_competitors(

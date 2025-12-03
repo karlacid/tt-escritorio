@@ -422,6 +422,19 @@ class ApiClient:
         Cierra sesión del administrador.
         """
         return self.post_logout("/api/auth/admin/logout", timeout=timeout)
+    
+    def get_combate_by_id(self, combate_id):
+        """
+        Obtiene los datos completos de un combate por su ID
+        GET /apiCombates/combate/{id}
+        """
+        url = f"{self.base_url}/apiCombates/combate/{combate_id}"
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(f"Error al obtener combate: {str(e)}")
 
 # Instancia global del cliente
 api = ApiClient()

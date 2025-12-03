@@ -386,28 +386,32 @@ class InicioSesionScreen(Screen):
     def iniciar_sesion(self, instance):
         login = self.correo_input.text.strip()   
         password = self.contraseña_input.text.strip()
-
+        
         if not login or not password:
             self.mostrar_mensaje("Error", "Ingresa usuario/correo y contraseña.")
             return
-
+    
         def _task():
             try:
                 resp = api.post_json("/api/auth/admin/login", {"login": login, "password": password})
+                
                 if resp.status_code == 200:
                     data = resp.json()
                     access_token = data.get("accessToken")
                     admin = data.get("admin")
-
+                    
                     if not access_token:
                         raise Exception("Respuesta sin token")
-
+                    
                     # Configurar el token en el API client
                     api.set_access_token(access_token)
                     
                     # Guardar en app.auth (tu método actual)
                     app = App.get_running_app()
                     app.auth = {"access_token": access_token, "admin": admin}
+                    
+                    # NUEVO: Guardar la contraseña del administrador
+                    app.admin_password = password  # <--- AGREGAR ESTA LÍNEA
                     
                     # NUEVO: También guardar en SessionManager
                     from session_manager import session
@@ -416,17 +420,19 @@ class InicioSesionScreen(Screen):
                         admin_data=admin,
                         access_token=access_token
                     )
-
+                    
                     def _ok(dt):
                         self.manager.current = 'ini'
                         self.mostrar_mensaje("Éxito", f"Bienvenido {admin.get('usuarioAdministrador')}")
+                    
                     Clock.schedule_once(_ok, 0)
-
+                    
                 elif resp.status_code in (400, 401):
                     try:
                         msg = resp.json().get("message", "Credenciales inválidas")
                     except Exception:
                         msg = "Credenciales inválidas"
+                    
                     def _err(dt):
                         self.mostrar_mensaje("Error", msg)
                     Clock.schedule_once(_err, 0)
@@ -434,21 +440,20 @@ class InicioSesionScreen(Screen):
                     def _err2(dt):
                         self.mostrar_mensaje("Error", f"Error del servidor ({resp.status_code}).")
                     Clock.schedule_once(_err2, 0)
-
+                    
             except requests.exceptions.ConnectionError:
                 msg = "No se pudo conectar con el servidor."
                 Clock.schedule_once(lambda dt, m=msg: self.mostrar_mensaje("Error", m), 0)
-
             except requests.exceptions.Timeout:
                 msg = "Tiempo de espera agotado."
                 Clock.schedule_once(lambda dt, m=msg: self.mostrar_mensaje("Error", m), 0)
-
             except Exception as e:
                 msg = f"Ocurrió un error: {e}"
                 Clock.schedule_once(lambda dt, m=msg: self.mostrar_mensaje("Error", m), 0)
-
+    
         if hasattr(self, "show_loading"): 
             self.show_loading("Verificando...")
+        
         Thread(target=_task, daemon=True).start()
 
     def mostrar_mensaje(self, titulo, mensaje):

@@ -166,7 +166,7 @@ class SuccessPopup(Popup):
 class PasswordInputPopup(Popup):
     def __init__(self, on_verify, **kwargs):
         super().__init__(**kwargs)
-        self.title = 'Ingresar Contraseña'
+        self.title = 'Verificación de Administrador'
         self.title_color = (1, 1, 1, 1)
         self.title_size = ResponsiveHelper.get_font_size(22)
         self.title_align = 'center'
@@ -179,13 +179,22 @@ class PasswordInputPopup(Popup):
 
         content = BoxLayout(orientation='vertical', spacing=dp(20), padding=dp(25))
         
+        info_label = Label(
+            text='Ingrese su contraseña de administrador',
+            font_size=ResponsiveHelper.get_font_size(16),
+            color=(0.5, 0.8, 1, 1),
+            size_hint_y=None,
+            height=dp(30)
+        )
+        content.add_widget(info_label)
+        
         self.password_input = TextInput(
             password=True,
             multiline=False,
             font_size=ResponsiveHelper.get_font_size(18),
             size_hint_y=None,
             height=dp(50),
-            hint_text='Ingrese su contraseña',
+            hint_text='Contraseña de administrador',
             padding=[dp(15), dp(12)]
         )
         content.add_widget(self.password_input)
@@ -233,17 +242,31 @@ class PasswordInputPopup(Popup):
         )
 
     def verify_password(self, instance):
-        if self.password_input.text == "petotech123":
+        """Verifica la contraseña del administrador contra la API"""
+        password = self.password_input.text.strip()
+        
+        if not password:
+            self.password_input.hint_text = 'Debe ingresar una contraseña'
+            self.password_input.hint_text_color = (1, 0, 0, 1)
+            return
+        
+        # Usar la contraseña almacenada en el login
+        from kivy.app import App
+        app = App.get_running_app()
+        
+        # Obtener la contraseña del usuario logueado (si está almacenada)
+        stored_password = getattr(app, 'admin_password', None)
+        
+        if stored_password and password == stored_password:
             self.on_verify(True)
             self.dismiss()
         else:
             self.password_input.text = ''
-            self.password_input.hint_text = 'Contraseña incorrecta, intente de nuevo'
+            self.password_input.hint_text = 'Contraseña incorrecta'
             self.password_input.hint_text_color = (1, 0, 0, 1)
 
-
 class PasswordDisplayPopup(Popup):
-    def __init__(self, combate_numero, **kwargs):
+    def __init__(self, combate_numero, password, **kwargs):
         super().__init__(**kwargs)
         self.title = 'Contraseña del Combate'
         self.title_color = (1, 1, 1, 1)
@@ -255,8 +278,6 @@ class PasswordDisplayPopup(Popup):
         self.separator_height = 0
         self.auto_dismiss = True
 
-        self.combate_password = self._generate_password(combate_numero)
-
         content = BoxLayout(orientation='vertical', spacing=dp(20), padding=dp(25))
         
         message = Label(
@@ -264,18 +285,23 @@ class PasswordDisplayPopup(Popup):
             font_size=ResponsiveHelper.get_font_size(18),
             color=(0.5, 0.8, 1, 1),
             halign='center',
-            markup=True
+            markup=True,
+            size_hint_y=None,
+            height=dp(60)
         )
         content.add_widget(message)
         
         password_display = Label(
-            text=f'[b]{self.combate_password}[/b]',
+            text=f'[b]{password}[/b]', 
             font_size=ResponsiveHelper.get_font_size(26),
-            color=(1, 1, 1, 1),
+            color=(0.5, 0.8, 1, 1),
             halign='center',
-            markup=True
+            markup=True,
+            size_hint_y=None,
+            height=dp(50)
         )
         content.add_widget(password_display)
+
         
         btn_ok = Button(
             text='OK',
@@ -299,11 +325,6 @@ class PasswordDisplayPopup(Popup):
             pos=lambda instance, value: setattr(self.rect, 'pos', value),
             size=lambda instance, value: setattr(self.rect, 'size', value)
         )
-
-    def _generate_password(self, combate_numero):
-        import hashlib
-        hash_obj = hashlib.md5(str(combate_numero).encode())
-        return hash_obj.hexdigest()[:8].upper()
 
 
 class ConfirmDeleteCombatePopup(Popup):
@@ -596,12 +617,76 @@ class CombateCard(BoxLayout):
         app.root.current = 'actualizar_combate'
 
     def open_password_flow(self, instance):
+        """Abre el flujo para verificar contraseña de admin y mostrar contraseña del combate"""
         PasswordInputPopup(
             on_verify=lambda success: self.show_combate_password() if success else None
         ).open()
 
     def show_combate_password(self):
-        PasswordDisplayPopup(combate_numero=self.combate_data['numero']).open()
+        """Muestra la contraseña del combate que ya tenemos en los datos"""
+        contrasena = self.combate_data.get('contrasenaCombate', 'No configurada')
+        
+        PasswordDisplayPopup(
+            combate_numero=self.combate_data['numero'],
+            password=contrasena
+        ).open()
+
+    def fetch_and_show_combate_password(self):
+        """Obtiene la contraseña del combate desde la API y la muestra"""
+        combate_id = self.combate_data.get('id')
+    
+        def _fetch():
+            try:
+                # Obtener datos completos del combate desde la API
+                combate_completo = api.get_combate_by_id(combate_id)
+                contrasena = combate_completo.get('contrasenaCombate', 'No configurada')
+                
+                Clock.schedule_once(
+                    lambda dt: PasswordDisplayPopup(
+                        combate_numero=self.combate_data['numero'],
+                        password=contrasena
+                    ).open()
+                )
+            except Exception as e:
+                Clock.schedule_once(
+                    lambda dt: self.show_error_popup(f"Error al obtener contraseña: {str(e)}")
+                )
+        
+        thread = Thread(target=_fetch)
+        thread.daemon = True
+        thread.start()
+
+    def show_error_popup(self, message):
+        """Muestra un popup de error"""
+        content = BoxLayout(orientation='vertical', spacing=dp(20), padding=dp(25))
+    
+        lbl = Label(
+            text=message,
+            font_size=ResponsiveHelper.get_font_size(16),
+            color=(1, 0.3, 0.3, 1),
+            halign='center'
+        )
+        content.add_widget(lbl)
+        
+        btn = Button(
+            text='OK',
+            size_hint_y=None,
+            height=dp(50),
+            background_normal='',
+            background_color=(0.2, 0.6, 1, 1)
+        )
+        
+        popup = Popup(
+            title='Error',
+            content=content,
+            size_hint=(None, None),
+            size=ResponsiveHelper.get_popup_size()
+        )
+        
+        btn.bind(on_press=popup.dismiss)
+        content.add_widget(btn)
+        popup.open()
+
 
     def navigate_to_tablero(self, instance):
         """Navega al tablero con todos los datos del combate"""
@@ -786,6 +871,7 @@ class CombatesScreen(Screen):
             "fecha": self._format_date(api_data.get("horaCombate")),
             "hora": self._format_time(api_data.get("horaCombate")),
             "categoria": api_data.get("area", "Sin categoría"),
+            "contrasenaCombate":api_data.get("contrasenaCombate", "No configurada"),
             
             # Competidor Rojo (competidor2 en el tablero)
             "competidor2": api_data.get("competidorRojo", {}).get("nombres", "No disponible"),

@@ -416,13 +416,13 @@ class RegistroScreen(Screen):
     def mostrar_mensaje(self, titulo, mensaje):
         content = BoxLayout(
             orientation='vertical',
-            spacing=dp(15),
+            spacing=dp(10),
             padding=dp(20)
         )
 
         lbl_mensaje = Label(
             text=mensaje,
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             font_size=ResponsiveHelper.get_font_size(18),
             halign='center',
             valign='middle',
@@ -515,7 +515,7 @@ class RegistroScreen(Screen):
         titulo_label = Label(
             text='Campos Obligatorios Faltantes:',
             font_size=ResponsiveHelper.get_font_size(20),
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             bold=True,
             size_hint_y=None,
             height=dp(40)
@@ -605,12 +605,27 @@ class RegistroScreen(Screen):
             self.contraseña_input.focus = True
             return
 
-        if len(self.contraseña_input.text) < 8:
-            self.mostrar_mensaje("Contraseña débil", "La contraseña debe tener al menos 8 caracteres")
+        import re
+
+        password = self.contraseña_input.text
+
+        # Expresión regular para validar la contraseña
+        patron = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$%&!?\-_.]).{8,}$'
+
+        if not re.match(patron, password):
+            self.mostrar_mensaje(
+                "Contraseña débil",
+                "La contraseña debe tener mínimo 8 caracteres e incluir:\n"
+                "- Al menos 1 letra mayúscula\n"
+                "- Al menos 1 letra minúscula\n"
+                "- Al menos 1 número\n"
+                "- Al menos 1 carácter especial (@, #, $, %, &, !, ?, -, _, .)"
+            )
             self.contraseña_input.text = ""
             self.confirmar_contraseña_input.text = ""
             self.contraseña_input.focus = True
             return
+
 
         # Mapear "Apellidos" en paterno/materno (si luego los separas, quita esta lógica)
         apellidos = self.apellidos_input.text.strip()

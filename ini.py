@@ -262,7 +262,7 @@ class NavbarAuth(BoxLayout):
 
         lbl_mensaje = Label(
             text='¿Estás seguro que deseas\ncerrar sesión?',
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             font_size=ResponsiveHelper.get_font_size(20),
             halign='center',
             valign='middle',

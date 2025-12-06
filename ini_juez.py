@@ -384,7 +384,7 @@ class InicioSesionJuezScreen(Screen):
         
         lbl_mensaje = Label(
             text=mensaje,
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             font_size=ResponsiveHelper.get_font_size(18),
             halign='center',
             valign='middle',

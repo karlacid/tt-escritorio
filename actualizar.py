@@ -563,7 +563,7 @@ class ActualizarDatosScreen(Screen):
         titulo_label = Label(
             text='Errores de Validación:',
             font_size=ResponsiveHelper.get_font_size(20),
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             bold=True,
             size_hint_y=None,
             height=dp(40)
@@ -633,7 +633,7 @@ class ActualizarDatosScreen(Screen):
         mensaje_label = Label(
             text=mensaje,
             font_size=ResponsiveHelper.get_font_size(18),
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             halign='center',
             valign='middle',
             size_hint_y=None,

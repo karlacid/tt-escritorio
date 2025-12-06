@@ -466,7 +466,7 @@ class InicioSesionScreen(Screen):
         # --- CAMBIO DE COLOR AQUÍ ---
         lbl_mensaje = Label(
             text=mensaje,
-            color=(0.5, 0.8, 1, 1), # Azul brillante para el texto del pop-up
+            color=(0.1, 0.4, 0.7, 1), # Azul brillante para el texto del pop-up
             font_size=ResponsiveHelper.get_font_size(18),
             halign='center',
             valign='middle',
@@ -528,7 +528,7 @@ class InicioSesionScreen(Screen):
         lbl_usuario = Label(
             text='Ingresa tu nombre de usuario:',
             font_size=ResponsiveHelper.get_font_size(18),
-            color=(0.5, 0.8, 1, 1), # Azul brillante para el texto del pop-up
+            color=(0.1, 0.4, 0.7, 1), # Azul brillante para el texto del pop-up
             size_hint_y=None,
             height=dp(40)
         )
@@ -598,7 +598,7 @@ class InicioSesionScreen(Screen):
         # --- CAMBIO DE COLOR AQUÍ ---
         lbl_correo_enviado = Label(
             text=f'Se ha enviado un correo a la cuenta asociada con el usuario: {usuario}',
-            color=(0.5, 0.8, 1, 1), # Azul brillante para el texto del pop-up
+            color=(0.1, 0.4, 0.7, 1), # Azul brillante para el texto del pop-up
             font_size=ResponsiveHelper.get_font_size(16),
             halign='center',
             valign='middle',

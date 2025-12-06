@@ -152,7 +152,7 @@ class ConfirmDeletePopup(Popup):
         message = Label(
             text=self._format_message(torneo_data["nombre"]),
             font_size=ResponsiveHelper.get_font_size(18),
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             halign='center',
             valign='middle',
             size_hint_y=None,

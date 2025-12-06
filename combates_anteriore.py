@@ -132,7 +132,7 @@ class SuccessPopup(Popup):
         message_label = Label(
             text=self.message,
             font_size=ResponsiveHelper.get_font_size(18),
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             halign='center',
             valign='middle'
         )
@@ -182,7 +182,7 @@ class PasswordInputPopup(Popup):
         info_label = Label(
             text='Ingrese su contraseña de administrador',
             font_size=ResponsiveHelper.get_font_size(16),
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             size_hint_y=None,
             height=dp(30)
         )
@@ -283,7 +283,7 @@ class PasswordDisplayPopup(Popup):
         message = Label(
             text=f'Contraseña para:\n[b]Combate #{combate_numero}[/b]',
             font_size=ResponsiveHelper.get_font_size(18),
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             halign='center',
             markup=True,
             size_hint_y=None,
@@ -294,7 +294,7 @@ class PasswordDisplayPopup(Popup):
         password_display = Label(
             text=f'[b]{password}[/b]', 
             font_size=ResponsiveHelper.get_font_size(26),
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             halign='center',
             markup=True,
             size_hint_y=None,
@@ -350,7 +350,7 @@ class ConfirmDeleteCombatePopup(Popup):
         message = Label(
             text=f'¿Estás seguro que deseas eliminar\nel combate #{combate_data["numero"]}?\nCategoría: {combate_data["categoria"]}',
             font_size=ResponsiveHelper.get_font_size(18),
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             halign='center',
             valign='middle',
             size_hint_y=None,
@@ -1073,7 +1073,7 @@ class CombatesScreen(Screen):
         
         lbl_mensaje = Label(
             text=message,
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             font_size=ResponsiveHelper.get_font_size(18),
             halign='center',
             valign='middle',

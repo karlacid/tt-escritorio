@@ -738,7 +738,7 @@ class CrearCombateScreen(Screen):
 
         lbl_mensaje = Label(
             text=mensaje,
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             font_size=ResponsiveHelper.get_font_size(18),
             halign='center',
             valign='middle',
@@ -793,7 +793,7 @@ class CrearCombateScreen(Screen):
         titulo_label = Label(
             text='Campos Obligatorios Faltantes:',
             font_size=ResponsiveHelper.get_font_size(20),
-            color=(0.5, 0.8, 1, 1),
+            color=(0.1, 0.4, 0.7, 1),
             bold=True,
             size_hint_y=None,
             height=dp(40)
@@ -804,7 +804,7 @@ class CrearCombateScreen(Screen):
             label_campo = Label(
                 text=f"• {campo}",
                 font_size=ResponsiveHelper.get_font_size(16),
-                color=(0.5, 0.8, 1, 1),
+                color=(0.1, 0.4, 0.7, 1),
                 size_hint_y=None,
                 height=dp(35),
                 halign='left'

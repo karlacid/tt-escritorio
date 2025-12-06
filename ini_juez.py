@@ -337,15 +337,14 @@ class InicioSesionJuezScreen(Screen):
         # Espaciador
         form_container.add_widget(Widget(size_hint_y=None, height=dp(8)))
 
-        # Enlace recuperar contraseña
-        recuperar_label = Label(
+        """recuperar_label = Label(
             text='¿Olvidaste tu contraseña?',
             font_size=ResponsiveHelper.get_font_size(16),
             color=(0.1, 0.4, 0.7, 1),
             size_hint_y=None,
             height=dp(30)
         )
-        form_container.add_widget(recuperar_label)
+        form_container.add_widget(recuperar_label)"""
 
         main_layout.add_widget(form_container)
         

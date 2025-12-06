@@ -280,7 +280,7 @@ class NavbarAuth(BoxLayout):
         btn_cancelar = Button(
             text='CANCELAR',
             background_normal='',
-            background_color=(0.5, 0.5, 0.5, 1),
+            background_color=(0.2, 0.6, 1, 1),
             color=(1, 1, 1, 1),
             bold=True,
             font_size=ResponsiveHelper.get_font_size(16)

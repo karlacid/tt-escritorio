@@ -534,9 +534,9 @@ class ConocenosScreen(Screen):
                     size_hint_y=0.15
                 ))
 
-        img_grid.add_widget(TeamCard("p1-Photoroom.png", "Karla", "Desarrolladora"))
-        img_grid.add_widget(TeamCard("p2-Photoroom.png", "Enrique", "Diseñador UI/UX"))
-        img_grid.add_widget(TeamCard("p2-Photoroom.png", "Leonardo", "Backend Developer"))
+        img_grid.add_widget(TeamCard("p1-Photoroom.png", "Karla" ))
+        img_grid.add_widget(TeamCard("p2-Photoroom.png", "Enrique"))
+        img_grid.add_widget(TeamCard("p2-Photoroom.png", "Leonardo"))
 
         gallery_scroll.add_widget(img_grid)
         gallery_container.add_widget(gallery_scroll)

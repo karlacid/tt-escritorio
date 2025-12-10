@@ -12,6 +12,8 @@ from kivy.app import App
 from kivy.metrics import dp, sp
 from kivy.uix.widget import Widget
 from kivy.utils import platform
+from threading import Thread
+from api_client import api  
 
 
 # ------------------ UTILIDADES RESPONSIVE ------------------
@@ -29,13 +31,13 @@ class ResponsiveHelper:
         """Retorna el ancho del formulario según el tamaño de ventana"""
         width = Window.width
         if width < 600:
-            return 0.95  # 95% en pantallas muy pequeñas
+            return 0.95
         elif width < 900:
-            return 0.85  # 85% en pantallas pequeñas
+            return 0.85
         elif width < 1200:
-            return 0.7   # 70% en pantallas medianas
+            return 0.7
         else:
-            return 0.5   # 50% en pantallas grandes
+            return 0.5
     
     @staticmethod
     def get_font_size(base_size):
@@ -151,12 +153,9 @@ class RoundedTextInput(TextInput):
 # ------------------ BOTÓN HOVER RESPONSIVE ------------------
 class HoverButton(Button):
     def __init__(self, **kwargs):
-        # Extraer bg_color antes de llamar al constructor padre
         bg_color = kwargs.pop('bg_color', None)
-        
         super().__init__(**kwargs)
         
-        # Si no se pasó bg_color, usar el background_color actual o el default
         if bg_color is None:
             bg_color = self.background_color if hasattr(self, 'background_color') else (0.1, 0.4, 0.7, 1)
         
@@ -195,7 +194,6 @@ class InicioSesionJuezScreen(Screen):
         super().__init__(**kwargs)
         self.name = 'ini_juez'
         
-        # Fondo de la pantalla completa (gris claro)
         with self.canvas.before:
             Color(0.95, 0.95, 0.95, 1)
             self.screen_bg = Rectangle(size=self.size, pos=self.pos)
@@ -211,7 +209,6 @@ class InicioSesionJuezScreen(Screen):
     def build_ui(self):
         self.clear_widgets()
         
-        # Layout principal sin ScrollView
         main_layout = BoxLayout(
             orientation='vertical',
             padding=[dp(20), dp(20), dp(20), dp(20)],
@@ -219,10 +216,8 @@ class InicioSesionJuezScreen(Screen):
             size_hint=(1, 1)
         )
 
-        # Espaciador superior flexible
         main_layout.add_widget(Widget(size_hint_y=0.1))
 
-        # Contenedor del formulario centrado
         form_container = BoxLayout(
             orientation='vertical',
             size_hint=(ResponsiveHelper.get_form_width(), None),
@@ -231,7 +226,6 @@ class InicioSesionJuezScreen(Screen):
         )
         form_container.bind(minimum_height=form_container.setter('height'))
 
-        # Logo responsive
         logo_height = ResponsiveHelper.get_logo_height()
         logo = Image(
             source="Imagen5-Photoroom.png",
@@ -241,7 +235,6 @@ class InicioSesionJuezScreen(Screen):
         )
         form_container.add_widget(logo)
 
-        # Título principal
         titulo = Label(
             text='INICIO DE SESIÓN',
             font_size=ResponsiveHelper.get_font_size(32),
@@ -252,10 +245,9 @@ class InicioSesionJuezScreen(Screen):
         )
         form_container.add_widget(titulo)
 
-        # Subtítulo JUEZ
         titulo2 = Label(
-            text='JUEZ',
-            font_size=ResponsiveHelper.get_font_size(50),
+            text='TABLERO CENTRAL',
+            font_size=ResponsiveHelper.get_font_size(40),
             color=(0.7, 0.1, 0.1, 1),
             bold=True,
             size_hint_y=None,
@@ -263,10 +255,8 @@ class InicioSesionJuezScreen(Screen):
         )
         form_container.add_widget(titulo2)
 
-        # Espaciador
         form_container.add_widget(Widget(size_hint_y=None, height=dp(8)))
 
-        # Campo de contraseña
         campos_layout = BoxLayout(
             orientation='vertical',
             spacing=dp(12),
@@ -282,7 +272,7 @@ class InicioSesionJuezScreen(Screen):
         contrasena_layout.bind(minimum_height=contrasena_layout.setter('height'))
         
         contrasena_label = Label(
-            text='Contraseña',
+            text='Contraseña del Combate',
             font_size=ResponsiveHelper.get_font_size(18),
             color=(0.1, 0.1, 0.2, 1),
             size_hint_y=None,
@@ -292,16 +282,13 @@ class InicioSesionJuezScreen(Screen):
         contrasena_label.bind(size=contrasena_label.setter('text_size'))
         contrasena_layout.add_widget(contrasena_label)
         
-        self.contrasena_input = RoundedTextInput(hint_text='********', password=True)
+        self.contrasena_input = RoundedTextInput(hint_text='Ingrese contraseña', password=True)
         contrasena_layout.add_widget(self.contrasena_input)
         campos_layout.add_widget(contrasena_layout)
 
         form_container.add_widget(campos_layout)
-
-        # Espaciador
         form_container.add_widget(Widget(size_hint_y=None, height=dp(12)))
 
-        # Botones responsive
         botones_layout = BoxLayout(
             orientation='horizontal' if Window.width > 600 else 'vertical',
             spacing=dp(15),
@@ -310,7 +297,7 @@ class InicioSesionJuezScreen(Screen):
         )
 
         btn_iniciar = HoverButton(
-            text='INICIAR SESIÓN',
+            text='ACCEDER AL COMBATE',
             background_color=(0.1, 0.4, 0.7, 1)
         )
         btn_iniciar.bind(on_press=self.iniciar_sesion)
@@ -320,7 +307,6 @@ class InicioSesionJuezScreen(Screen):
             text='VOLVER',
             background_color=(0.7, 0.1, 0.1, 1)
         )
-        # Actualizar el canvas del botón volver
         btn_volver.canvas.before.clear()
         with btn_volver.canvas.before:
             Color(0.7, 0.1, 0.1, 1)
@@ -333,22 +319,9 @@ class InicioSesionJuezScreen(Screen):
         botones_layout.add_widget(btn_volver)
 
         form_container.add_widget(botones_layout)
-
-        # Espaciador
         form_container.add_widget(Widget(size_hint_y=None, height=dp(8)))
 
-        """recuperar_label = Label(
-            text='¿Olvidaste tu contraseña?',
-            font_size=ResponsiveHelper.get_font_size(16),
-            color=(0.1, 0.4, 0.7, 1),
-            size_hint_y=None,
-            height=dp(30)
-        )
-        form_container.add_widget(recuperar_label)"""
-
         main_layout.add_widget(form_container)
-        
-        # Espaciador inferior flexible
         main_layout.add_widget(Widget(size_hint_y=0.1))
 
         self.add_widget(main_layout)
@@ -364,17 +337,205 @@ class InicioSesionJuezScreen(Screen):
             self.contrasena_input.focus = True
 
     def iniciar_sesion(self, instance):
-        CONTRASENA_VALIDA = "123"
-        
+        """Valida la contraseña contra el backend usando api_client"""
         contrasena = self.contrasena_input.text.strip()
         
-        if contrasena == CONTRASENA_VALIDA:
+        if not contrasena:
+            self.mostrar_mensaje("Error", "Por favor ingrese una contraseña")
+            return
+        
+        self.mostrar_loading()
+    
+        def hacer_login():
+            try:
+                print(f"[InicioSesionJuez] 🔐 Intentando login con contraseña: {contrasena}")
+                
+                # ✅ PASO 1: Login usando api_client
+                response = api.session.post(
+                    f"{api.base_url}/api/auth/juez/login",
+                    json={'password': contrasena},
+                    headers={'Content-Type': 'application/json'},
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    combate_id = result.get('combateId')
+                    
+                    print(f"[InicioSesionJuez] ✓ Login exitoso - CombateId: {combate_id}")
+                    
+                    # ✅ PASO 2: Preparar el combate (WebSocket)
+                    try:
+                        print(f"[InicioSesionJuez] 🔌 Preparando WebSocket para combate {combate_id}...")
+                        prepare_response = api.prepare_combate(combate_id)
+                        print(f"[InicioSesionJuez] ✓ Combate preparado: {prepare_response}")
+                    except Exception as e:
+                        print(f"[InicioSesionJuez] ⚠️ Error preparando combate (continuando): {e}")
+                    
+                    # ✅ PASO 3: Obtener datos del combate usando api_client
+                    combate_data = api.get_combate_by_id(combate_id)
+                    print(f"[InicioSesionJuez] 📋 Datos del combate: {combate_data}")
+                    
+                    # ✅ PASO 4: Extraer competidores directamente del combate
+                    competidor_rojo = combate_data.get('competidorRojo', {})
+                    competidor_azul = combate_data.get('competidorAzul', {})
+                
+                    # Extraer nombres (pueden venir como 'nombres' o 'nombreAlumno')
+                    nombre_rojo = competidor_rojo.get('nombres') or competidor_rojo.get('nombreAlumno', 'ROJO')
+                    nombre_azul = competidor_azul.get('nombres') or competidor_azul.get('nombreAlumno', 'AZUL')
+                    
+                    # Extraer nacionalidades (si existen)
+                    nacionalidad_rojo = competidor_rojo.get('nacionalidad', 'MX')
+                    nacionalidad_azul = competidor_azul.get('nacionalidad', 'MX')
+                    
+                    # IDs de los alumnos
+                    id_rojo = competidor_rojo.get('id')
+                    id_azul = competidor_azul.get('id')
+                    
+                    # Preparar datos del combate
+                    combate_completo = {
+                        'idCombate': combate_id,
+                        'idAlumnoRojo': id_rojo,
+                        'idAlumnoAzul': id_azul,
+                        'duracionRound': combate_data.get('duracionRound', '00:03:00'),
+                        'duracionDescanso': combate_data.get('duracionDescanso', '00:01:00'),
+                        'numeroRounds': combate_data.get('numeroRound', 3)
+                    }
+                    
+                    print(f"[InicioSesionJuez] ✅ Datos completos:")
+                    print(f"  Combate ID: {combate_id}")
+                    print(f"  🔴 ROJO: {nombre_rojo} (ID: {id_rojo})")
+                    print(f"  🔵 AZUL: {nombre_azul} (ID: {id_azul})")
+                    
+                    # Programar la transición
+                    Clock.schedule_once(lambda dt: self.ir_a_tablero(
+                        nombre_rojo,
+                        nacionalidad_rojo,
+                        nombre_azul,
+                        nacionalidad_azul,
+                        combate_completo
+                    ), 0)
+                    
+                else:
+                    error_msg = "Contraseña incorrecta"
+                    try:
+                        error_data = response.json()
+                        error_msg = error_data.get('message', error_msg)
+                    except:
+                        pass
+                    
+                    print(f"[InicioSesionJuez] ✗ Login fallido: {error_msg}")
+                    Clock.schedule_once(lambda dt: self.mostrar_mensaje("Error", error_msg), 0)
+                    
+            except Exception as e:
+                print(f"[InicioSesionJuez] ✗ Error inesperado: {e}")
+                import traceback
+                traceback.print_exc()
+                Clock.schedule_once(lambda dt: self.mostrar_mensaje(
+                    "Error", 
+                    f"Error de conexión: {str(e)}"
+                ), 0)
+            finally:
+                Clock.schedule_once(lambda dt: self.cerrar_loading(), 0)
+    
+        login_thread = Thread(target=hacer_login)
+        login_thread.daemon = True
+        login_thread.start()
+
+    def ir_a_tablero(self, nombre_rojo, nat_rojo, nombre_azul, nat_azul, combate_data):
+        """Navega al tablero central con los datos del combate"""
+        try:
+            print("[InicioSesionJuez] 🎯 Navegando al tablero central...")
+            
+            # Obtener la pantalla del tablero
+            tablero_screen = self.manager.get_screen('tablero_central')
+            
+            # Configurar los competidores
+            tablero_screen.set_competitors(
+                name1=nombre_rojo,
+                nat1=nat_rojo,
+                name2=nombre_azul,
+                nat2=nat_azul,
+                combate_data=combate_data
+            )
+            
+            # Cambiar a la pantalla del tablero
             self.manager.current = 'tablero_central'
-            self.mostrar_mensaje("Éxito", "Sesión iniciada correctamente")
-        else:
-            self.mostrar_mensaje("Error", "Contraseña incorrecta")
+            
+            print("[InicioSesionJuez] ✓ Navegando al tablero central")
+            
+        except Exception as e:
+            print(f"[InicioSesionJuez] ✗ Error navegando al tablero: {e}")
+            import traceback
+            traceback.print_exc()
+            self.mostrar_mensaje("Error", f"No se pudo acceder al tablero: {str(e)}")
+
+    def volver(self, instance):
+        """Regresa a la pantalla principal"""
+        try:
+            # Limpiar el input de contraseña
+            if hasattr(self, 'contrasena_input'):
+                self.contrasena_input.text = ""
+            
+            # Navegar a la pantalla principal
+            self.manager.current = 'main'
+            print("[InicioSesionJuez] 👈 Volviendo a pantalla principal")
+        except Exception as e:
+            print(f"[InicioSesionJuez] ✗ Error al volver: {e}")
+
+    def mostrar_loading(self):
+        """Muestra un popup de carga"""
+        content = BoxLayout(
+            orientation='vertical',
+            spacing=dp(15),
+            padding=dp(30)
+        )
+        
+        lbl_mensaje = Label(
+            text="Verificando contraseña...",
+            color=(0.1, 0.4, 0.7, 1),
+            font_size=ResponsiveHelper.get_font_size(18),
+            halign='center',
+            valign='middle'
+        )
+        content.add_widget(lbl_mensaje)
+        
+        popup_size = ResponsiveHelper.get_popup_size()
+        self.loading_popup = Popup(
+            title="Cargando",
+            title_color=(1, 1, 1, 1),
+            title_size=ResponsiveHelper.get_font_size(22),
+            title_align='center',
+            content=content,
+            size_hint=(None, None),
+            size=(popup_size[0], dp(150)),
+            separator_height=0,
+            background='',
+            auto_dismiss=False
+        )
+        
+        with self.loading_popup.canvas.before:
+            Color(0.1, 0.4, 0.7, 1)
+            self.loading_popup.rect = RoundedRectangle(
+                pos=self.loading_popup.pos,
+                size=self.loading_popup.size,
+                radius=[dp(15)]
+            )
+        
+        def update_popup_rect(instance, value):
+            instance.rect.pos = instance.pos
+            instance.rect.size = instance.size
+        
+        self.loading_popup.bind(pos=update_popup_rect, size=update_popup_rect)
+        self.loading_popup.open()
+    
+    def cerrar_loading(self):
+        """Cierra el popup de carga"""
+        if hasattr(self, 'loading_popup'):
+            self.loading_popup.dismiss()
 
     def mostrar_mensaje(self, titulo, mensaje):
+        """Muestra un mensaje emergente"""
         content = BoxLayout(
             orientation='vertical',
             spacing=dp(15),
@@ -433,9 +594,6 @@ class InicioSesionJuezScreen(Screen):
         btn_aceptar.bind(on_press=popup.dismiss)
         content.add_widget(btn_aceptar)
         popup.open()
-
-    def volver(self, instance):
-        self.manager.current = 'main'
 
 
 # ------------------ APP DE PRUEBA ------------------

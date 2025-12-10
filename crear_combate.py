@@ -652,7 +652,7 @@ class CrearCombateScreen(Screen):
         form_container.add_widget(cp_layout)
 
         rcp_layout, self.repetir_contrasena_input = crear_campo('Repetir Contraseña', 'Confirmar contraseña')
-        self.repetir_contrasena_input.password = True  # Ocultar texto
+        self.repetir_contrasena_input.password = True
         form_container.add_widget(rcp_layout)
 
         # JUECES
@@ -888,6 +888,7 @@ class CrearCombateScreen(Screen):
         
         if len(self.contrasena_input.text) < 6:
             self.mostrar_mensaje("Error", "La contraseña debe tener al menos 6 caracteres")
+            return
 
         # Validaciones numéricas
         try:
@@ -903,12 +904,12 @@ class CrearCombateScreen(Screen):
             return
 
         # Recoger UI
-        fecha_combate_dmy = self.fecha_combate_selector.get_formatted_date()   # dd/mm/YYYY
-        hora_combate_hm   = self.hora_combate_selector.get_formatted_time()    # HH:MM
+        fecha_combate_dmy = self.fecha_combate_selector.get_formatted_date()
+        hora_combate_hm   = self.hora_combate_selector.get_formatted_time()
         categoria_peso    = self.categoria_peso_selector.get_selected_category()
         num_rounds        = self.rounds_selector.get_selected_rounds()
-        duracion_round    = self.duracion_round_selector.get_formatted_duration()     # M:SS
-        duracion_descanso = self.duracion_descanso_selector.get_formatted_duration()  # M:SS
+        duracion_round    = self.duracion_round_selector.get_formatted_duration()
+        duracion_descanso = self.duracion_descanso_selector.get_formatted_duration()
         fn1_dmy           = self.fecha_nac1_selector.get_formatted_date()
         fn2_dmy           = self.fecha_nac2_selector.get_formatted_date()
 
@@ -1000,9 +1001,10 @@ class CrearCombateScreen(Screen):
                     if ultimo_torneo:
                         print(f"[CrearCombate] Usando torneo: {ultimo_torneo.get('nombre')} (ID: {ultimo_torneo.get('idTorneo')})")
                 except:
-                    pass  # No es crítico si falla
+                    pass
                 
-                creado = api.create_combate(payload)         # POST
+                # ✅ Solo crear el combate, NO llamar a prepare
+                creado = api.create_combate(payload)
                 combate_id = creado.get("id") or creado.get("idCombate")
                 if not combate_id:
                     raise RuntimeError("El servidor no devolvió un id de combate.")
@@ -1013,7 +1015,9 @@ class CrearCombateScreen(Screen):
                 else:
                     print("[CrearCombate] ADVERTENCIA: No se asignó ningún torneo al combate")
 
-                api.prepare_combate(int(combate_id))         # POST /prepare
+                # ✅ NO llamar a prepare aquí
+                # api.prepare_combate(int(combate_id))
+                
                 self._on_success(creado, fecha_combate_dmy, hora_combate_hm)
             except Exception as e:
                 self._on_error(str(e))
@@ -1039,8 +1043,9 @@ class CrearCombateScreen(Screen):
         duracion_round = self.duracion_round_selector.get_formatted_duration()
         duracion_descanso = self.duracion_descanso_selector.get_formatted_duration()
         combate_id = creado.get("id") or creado.get("idCombate", "—")
+        contrasena = self.contrasena_input.text.strip()
 
-        # Mostrar mensaje de éxito
+        # Mostrar mensaje de éxito con la contraseña
         self.mostrar_mensaje(
             "¡Combate creado!",
             ( f"ID: {combate_id}\n"
@@ -1048,51 +1053,30 @@ class CrearCombateScreen(Screen):
             f"Categoría: {categoria_peso}\n"
             f"Rounds: {num_rounds} | Round: {duracion_round} | Descanso: {duracion_descanso}\n"
             f"Fecha: {fecha_dmy} a las {hora_hm}\n"
-            f"Área: {self.area_input.text}\n"
-            f"Servidor listo para conexiones WebSocket.")
+            f"Área: {self.area_input.text}\n\n"
+            f"Contraseña: {contrasena}\n\n"
+            f"Usa esta contraseña para acceder\nal tablero central")
         )
 
-       
-        app = App.get_running_app()
-        sm = app.root
-        
-        if sm and sm.has_screen('tablero_central'):
-            tablero = sm.get_screen('tablero_central')
-            
-            # Preparar datos del combate desde la respuesta del backend
-            combate_data = {
-                'idCombate': creado.get('idCombate') or creado.get('id'),
-                'id': creado.get('id') or creado.get('idCombate'),
-                'idAlumnoRojo': creado.get('idAlumnoRojo'), 
-                'idAlumnoAzul': creado.get('idAlumnoAzul'), 
-                'duracionRound': creado.get('duracionRound'),     
-                'duracionDescanso': creado.get('duracionDescanso'), 
-                'numeroRounds': creado.get('numeroRounds')        
-            }
-            
-            
-            # Configurar el tablero con todos los datos
-            tablero.set_competitors(
-                name1=self.competidor1_input.text.strip(),
-                nat1=self.nacionalidad1_input.text.strip(),
-                name2=self.competidor2_input.text.strip(),
-                nat2=self.nacionalidad2_input.text.strip(),
-                combate_data=combate_data
-            )
-            
-            # Cambiar a la pantalla del tablero
-            sm.current = 'tablero_central'
-            
-            print(f"[SUCCESS] Tablero configurado correctamente")
-        
         # Limpiar campos del formulario
         for widget in self.walk():
             if isinstance(widget, TextInput):
                 widget.text = ""
+        
+        # Volver a la pantalla principal
+        Clock.schedule_once(lambda dt: self.volver_a_ini(), 0.5)
+
+    def volver_a_ini(self):
+        """Regresa a la pantalla principal (ini)"""
+        try:
+            App.get_running_app().root.current = 'ini'
+            print("[CrearCombate] ✓ Volviendo a pantalla inicial")
+        except Exception as e:
+            print(f"[CrearCombate] ✗ Error al volver: {e}")
 
     @mainthread
     def _on_error(self, msg):
-        self.mostrar_mensaje("Error", f"Ocurrió un problema al crear o preparar el combate:\n{msg}")
+        self.mostrar_mensaje("Error", f"Ocurrió un problema al crear el combate:\n{msg}")
 
     def volver_a_principal(self, instance):
         App.get_running_app().root.current = 'ini'

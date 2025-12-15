@@ -1,6 +1,8 @@
 import json
 import requests
 from config import API_BASE_URL, DEFAULT_TIMEOUT
+from typing import Optional
+
 
 class ApiClient:
     def __init__(self, base_url=API_BASE_URL):
@@ -12,7 +14,7 @@ class ApiClient:
     def _url(self, path: str) -> str:
         return f"{self.base_url}/{path.lstrip('/')}"
 
-    def set_access_token(self, token: str | None):
+    def set_access_token(self, token: Optional[str]):
         self._access_token = token
 
     def headers(self):

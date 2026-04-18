@@ -7,7 +7,7 @@ from kivy.uix.image import Image
 from kivy.uix.scrollview import ScrollView
 from kivy.graphics import Color, RoundedRectangle, Rectangle
 from kivy.core.window import Window
-from kivy.clock import Clock
+from kivy.clock import Clock    
 from kivy.uix.popup import Popup
 from kivy.app import App
 from kivy.metrics import dp, sp
